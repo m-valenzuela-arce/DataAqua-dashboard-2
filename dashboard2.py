@@ -162,7 +162,8 @@ def kpis_ciclo(df: pd.DataFrame) -> dict:
 
 def _xcol(df: pd.DataFrame, prefer="Fecha"):
     if prefer in df.columns and df[prefer].notna().any(): return prefer
-    for alt in ("Fecha","DOY","Dia_ciclo"):
+    #for alt in ("Fecha","DOY","Dia_ciclo"):
+    for alt in ("Fecha", "Dia_ciclo"):
         if alt in df.columns and df[alt].notna().any():
             return alt
     return df.index
@@ -257,7 +258,8 @@ if CAT_UNISON.empty:
     st.stop()
 
 modo = st.sidebar.radio("Modo", ["Individual", "Comparar ciclos", "Comparar regiones"], index=0)
-eje_opt = st.sidebar.radio("Eje X:", ["Fecha","DOY","Dia_ciclo"], index=0)
+#eje_opt = st.sidebar.radio("Eje X:", ["Fecha","DOY","Dia_ciclo"], index=0)
+eje_opt = st.sidebar.radio("Eje X:", ["Fecha","Dia_ciclo"], index=0)
 
 if modo == "Individual":
     regiones = sorted(CAT_UNISON["Region"].unique())

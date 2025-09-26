@@ -36,8 +36,9 @@ st.set_page_config(
 )
 
 # Rutas (usa tus rutas reales)
-RUTA_BASE          = Path("/lustre/home/mvalenzuela/Ocotillo/DataAqua")
-RUTA_SALIDA_UNISON = RUTA_BASE / "Salidas_ETo12" / "Periodo de Cultivo ETo"
+#RUTA_BASE          = Path("/lustre/home/mvalenzuela/Ocotillo/DataAqua")
+#RUTA_SALIDA_UNISON = RUTA_BASE / "Salidas_ETo12" / "Periodo de Cultivo ETo"
+RUTA_SALIDA_UNISON = Path("data") / "Salidas_ETo12_con_uac_y_hh" / "Periodo de Cultivo ETo"
 
 # Estilos
 sns.set_style("whitegrid")

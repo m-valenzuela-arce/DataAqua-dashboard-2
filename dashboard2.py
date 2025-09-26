@@ -257,18 +257,20 @@ if CAT_UNISON.empty:
     st.error("No se encontraron archivos en Salidas_ETo12/Periodo de Cultivo ETo.")
     st.stop()
 
-modo = st.sidebar.radio("Modo", ["Ciclo individual", "Comparar ciclos", "Comparar regiones"], index=0)
+modo = st.sidebar.radio("Modo", ["", "Comparar ciclos", "Comparar regiones"], index=0)
 #eje_opt = st.sidebar.radio("Eje X:", ["Fecha","DOY","Dia_ciclo"], index=0)
-eje_opt = st.sidebar.radio("Eje X:", ["Fecha","Dia del ciclo"], index=0)
 
-# --- Selector de variables para la Serie diaria ---
-vars_posibles = ["ET0", "ETc", "ETverde", "ETazul", "Pef"]
-vars_disponibles = [v for v in vars_posibles if v in df.columns]
+eje_label = st.sidebar.radio("Eje X:", ["Fecha", "Día del ciclo"], index=0)
+eje_opt = "Dia_ciclo" if eje_label == "Día del ciclo" else "Fecha"
 
-series_sel = st.sidebar.multiselect(
-    "Series a mostrar:",
-    options=vars_disponibles,
-    default=vars_disponibles
+# # --- Selector de variables para la Serie diaria ---
+# vars_posibles = ["ET0", "ETc", "ETverde", "ETazul", "Pef"]
+# vars_disponibles = [v for v in vars_posibles if v in df.columns]
+
+# series_sel = st.sidebar.multiselect(
+#     "Series a mostrar:",
+#     options=vars_disponibles,
+#     default=vars_disponibles
 )
 
 if modo == "Ciclo individual":

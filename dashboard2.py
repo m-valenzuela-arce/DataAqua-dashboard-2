@@ -2,7 +2,7 @@
 # DataAqua Dashboard 2 (Streamlit)
 # ===========================
 # Modos:
-#  - Individual
+#  - Ciclo individual
 #  - Comparar ciclos (misma región)
 #  - Comparar regiones (mismo ciclo)
 #
@@ -257,11 +257,11 @@ if CAT_UNISON.empty:
     st.error("No se encontraron archivos en Salidas_ETo12/Periodo de Cultivo ETo.")
     st.stop()
 
-modo = st.sidebar.radio("Modo", ["Individual", "Comparar ciclos", "Comparar regiones"], index=0)
+modo = st.sidebar.radio("Modo", ["Ciclo individual", "Comparar ciclos", "Comparar regiones"], index=0)
 #eje_opt = st.sidebar.radio("Eje X:", ["Fecha","DOY","Dia_ciclo"], index=0)
 eje_opt = st.sidebar.radio("Eje X:", ["Fecha","Dia_ciclo"], index=0)
 
-if modo == "Individual":
+if modo == "Ciclo individual":
     regiones = sorted(CAT_UNISON["Region"].unique())
     region_sel = st.sidebar.selectbox("Región:", regiones)
     ciclos_reg = sorted(CAT_UNISON.loc[CAT_UNISON["Region"]==region_sel, "Ciclo"].unique())
@@ -298,7 +298,7 @@ st.caption("Resultados UNISON (FAO-56). ETc (demanda del cultivo), ETverde (cubi
 
 tabs_main = st.tabs(["KPIs", "Serie diaria", "Acumulados", "Decádico", "Kc–ET0", "Drivers ET0", "Datos"])
 
-if modo == "Individual":
+if modo == "Ciclo individual":
     ruta_sel = CAT_UNISON[(CAT_UNISON.Region==region_sel) & (CAT_UNISON.Ciclo==ciclo_sel)]["Ruta"]
     if ruta_sel.empty:
         st.error(f"No encontré CSV para {region_sel} / {ciclo_sel}")

@@ -257,7 +257,7 @@ if CAT_UNISON.empty:
     st.error("No se encontraron archivos en Salidas_ETo12/Periodo de Cultivo ETo.")
     st.stop()
 
-modo = st.sidebar.radio("Modo", ["", "Comparar ciclos", "Comparar regiones"], index=0)
+modo = st.sidebar.radio("Modo", ["Ciclo individual", "Comparar ciclos", "Comparar regiones"], index=0)
 #eje_opt = st.sidebar.radio("Eje X:", ["Fecha","DOY","Dia_ciclo"], index=0)
 
 eje_label = st.sidebar.radio("Eje X:", ["Fecha", "Día del ciclo"], index=0)

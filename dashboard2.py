@@ -271,7 +271,7 @@ eje_opt = "Dia_ciclo" if eje_label == "Día del ciclo" else "Fecha"
 #     "Series a mostrar:",
 #     options=vars_disponibles,
 #     default=vars_disponibles
-)
+#)
 
 if modo == "Ciclo individual":
     regiones = sorted(CAT_UNISON["Region"].unique())

@@ -259,7 +259,7 @@ if CAT_UNISON.empty:
 
 modo = st.sidebar.radio("Modo", ["Ciclo individual", "Comparar ciclos", "Comparar regiones"], index=0)
 #eje_opt = st.sidebar.radio("Eje X:", ["Fecha","DOY","Dia_ciclo"], index=0)
-eje_opt = st.sidebar.radio("Eje X:", ["Fecha","Dia_ciclo"], index=0)
+eje_opt = st.sidebar.radio("Eje X:", ["Fecha","Dia del ciclo"], index=0)
 
 if modo == "Ciclo individual":
     regiones = sorted(CAT_UNISON["Region"].unique())

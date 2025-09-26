@@ -33,8 +33,9 @@ import streamlit as st
 # ---------------------------
 st.set_page_config(page_title="DataAqua — Dashboard 2", page_icon="💧", layout="wide")
 
-RUTA_BASE          = Path("/lustre/home/mvalenzuela/Ocotillo/DataAqua")
-RUTA_SALIDA_UNISON = RUTA_BASE / "Salidas_ETo12" / "Periodo de Cultivo ETo"
+#RUTA_BASE          = Path("/lustre/home/mvalenzuela/Ocotillo/DataAqua")
+#RUTA_SALIDA_UNISON = RUTA_BASE / "Salidas_ETo12" / "Periodo de Cultivo ETo"
+RUTA_SALIDA_UNISON = (path)"data" / "Salidas_ETo12" / "Periodo de Cultivo ETo"
 
 sns.set_style("whitegrid")
 plt.rcParams["figure.dpi"] = 120

@@ -261,6 +261,16 @@ modo = st.sidebar.radio("Modo", ["Ciclo individual", "Comparar ciclos", "Compara
 #eje_opt = st.sidebar.radio("Eje X:", ["Fecha","DOY","Dia_ciclo"], index=0)
 eje_opt = st.sidebar.radio("Eje X:", ["Fecha","Dia del ciclo"], index=0)
 
+# --- Selector de variables para la Serie diaria ---
+vars_posibles = ["ET0", "ETc", "ETverde", "ETazul", "Pef"]
+vars_disponibles = [v for v in vars_posibles if v in df.columns]
+
+series_sel = st.sidebar.multiselect(
+    "Series a mostrar:",
+    options=vars_disponibles,
+    default=vars_disponibles
+)
+
 if modo == "Ciclo individual":
     regiones = sorted(CAT_UNISON["Region"].unique())
     region_sel = st.sidebar.selectbox("Región:", regiones)
@@ -308,6 +318,16 @@ if modo == "Ciclo individual":
         st.error("No fue posible leer el archivo seleccionado.")
         st.stop()
 
+    # --- Selector de variables para la Serie diaria (ya con df cargado) ---
+    vars_posibles = ["ET0", "ETc", "ETverde", "ETazul", "Pef"]
+    vars_disponibles = [v for v in vars_posibles if v in df.columns]
+    series_sel = st.sidebar.multiselect(
+        "Series a mostrar:",
+        options=vars_disponibles,
+        default=vars_disponibles
+    )
+
+
     with tabs_main[0]:
         st.subheader(f"KPIs — {region_sel} ({ciclo_sel})")
         k = kpis_ciclo(df)
@@ -324,10 +344,13 @@ if modo == "Ciclo individual":
 
     with tabs_main[1]:
         if show_series:
-            fig = fig_series(df, f"Serie diaria — {region_sel} ({ciclo_sel})", eje=eje_opt)
-            st.pyplot(fig, use_container_width=True)
+            #fig = fig_series(df, f"Serie diaria — {region_sel} ({ciclo_sel})", eje=eje_opt)
+            #st.pyplot(fig, use_container_width=True)
+            fig = fig_series(df, f"Serie diaria — {region_sel} ({ciclo_sel})", eje=eje_opt, mostrar=series_sel)
+            st.pyplot(fig, use_container_width=True)            
         else:
-            st.info("Activa 'Serie diaria' en el panel izquierdo.")
+            st.info("Selecciona al menos una serie para graficar.")
+            #st.info("Activa 'Serie diaria' en el panel izquierdo.")
 
     with tabs_main[2]:
         if show_acumulados:
@@ -386,6 +409,16 @@ elif modo == "Comparar ciclos":
         st.stop()
     dfA = leer_unison(ruta_A.iloc[0]); dfB = leer_unison(ruta_B.iloc[0])
 
+    # Selector de series (intersección de columnas disponibles en ambos)
+    vars_posibles = ["ET0", "ETc", "ETverde", "ETazul", "Pef"]
+    vars_comunes = [v for v in vars_posibles if v in dfA.columns and v in dfB.columns]
+    series_sel = st.sidebar.multiselect(
+        "Series a mostrar:",
+        options=vars_comunes,
+        default=vars_comunes
+    )
+
+
     with tabs_main[0]:
         st.subheader(f"KPIs — {region_sel} | {ciclo_A} vs {ciclo_B}")
         c1, c2 = st.columns(2)
@@ -403,17 +436,28 @@ elif modo == "Comparar ciclos":
             st.metric("% Azul", f"{kB['pct_azul']:.1f}%")
             st.metric("Días (ETc>Pef)", f"{kB['dias_def']}")
 
+    #with tabs_main[1]:
+        # xA = _xcol(dfA, eje_opt); xB = _xcol(dfB, eje_opt)
+        # fig, ax = plt.subplots(1,1, figsize=(12,4))
+        # if "ETc" in dfA: ax.plot(dfA[xA], dfA["ETc"], label=f"ETc {ciclo_A}", lw=1.5, color="#1f77b4")
+        # if "ETc" in dfB: ax.plot(dfB[xB], dfB["ETc"], label=f"ETc {ciclo_B}", lw=1.5, color="#ff7f0e")
+        # if "ETazul" in dfA: ax.plot(dfA[xA], dfA["ETazul"], label=f"ETazul {ciclo_A}", lw=1.2, color="#1f77b4", ls="--")
+        # if "ETazul" in dfB: ax.plot(dfB[xB], dfB["ETazul"], label=f"ETazul {ciclo_B}", lw=1.2, color="#ff7f0e", ls="--")
+        # ax.set_title(f"Serie diaria — {region_sel}")
+        # ax.set_xlabel(eje_opt); ax.set_ylabel("mm/día"); ax.legend()
+        # fig.tight_layout(); st.pyplot(fig, use_container_width=True)
+
     with tabs_main[1]:
         xA = _xcol(dfA, eje_opt); xB = _xcol(dfB, eje_opt)
         fig, ax = plt.subplots(1,1, figsize=(12,4))
-        if "ETc" in dfA: ax.plot(dfA[xA], dfA["ETc"], label=f"ETc {ciclo_A}", lw=1.5, color="#1f77b4")
-        if "ETc" in dfB: ax.plot(dfB[xB], dfB["ETc"], label=f"ETc {ciclo_B}", lw=1.5, color="#ff7f0e")
-        if "ETazul" in dfA: ax.plot(dfA[xA], dfA["ETazul"], label=f"ETazul {ciclo_A}", lw=1.2, color="#1f77b4", ls="--")
-        if "ETazul" in dfB: ax.plot(dfB[xB], dfB["ETazul"], label=f"ETazul {ciclo_B}", lw=1.2, color="#ff7f0e", ls="--")
+        colores = {"ET0":"#4C78A8","ETc":"#F58518","ETverde":"#54A24B","ETazul":"#E45756","Pef":"#9D9D9D"}
+        for v in series_sel:
+            if v in dfA: ax.plot(dfA[xA], dfA[v], label=f"{v} {ciclo_A}", lw=1.5, color=colores.get(v))
+            if v in dfB: ax.plot(dfB[xB], dfB[v], label=f"{v} {ciclo_B}", lw=1.5, linestyle="--", color=colores.get(v))
         ax.set_title(f"Serie diaria — {region_sel}")
         ax.set_xlabel(eje_opt); ax.set_ylabel("mm/día"); ax.legend()
         fig.tight_layout(); st.pyplot(fig, use_container_width=True)
-
+        
     with tabs_main[2]:
         fig, ax = plt.subplots(1,1, figsize=(12,4))
         if "ETc" in dfA: ax.plot(dfA[_xcol(dfA,eje_opt)], dfA["ETc"].cumsum(), label=f"ETc {ciclo_A}", lw=1.8, color="#1f77b4")
@@ -459,6 +503,14 @@ elif modo == "Comparar regiones":
         st.stop()
     dfA = leer_unison(ruta_A.iloc[0]); dfB = leer_unison(ruta_B.iloc[0])
 
+    vars_posibles = ["ET0", "ETc", "ETverde", "ETazul", "Pef"]
+    vars_comunes = [v for v in vars_posibles if v in dfA.columns and v in dfB.columns]
+    series_sel = st.sidebar.multiselect(
+        "Series a mostrar:",
+        options=vars_comunes,
+        default=vars_comunes
+    )
+
     with tabs_main[0]:
         st.subheader(f"KPIs — {ciclo_sel} | {region_A} vs {region_B}")
         c1, c2 = st.columns(2)
@@ -476,13 +528,24 @@ elif modo == "Comparar regiones":
             st.metric("% Azul", f"{kB['pct_azul']:.1f}%")
             st.metric("Días (ETc>Pef)", f"{kB['dias_def']}")
 
+    # with tabs_main[1]:
+    #     xA = _xcol(dfA, eje_opt); xB = _xcol(dfB, eje_opt)
+    #     fig, ax = plt.subplots(1,1, figsize=(12,4))
+    #     if "ETc" in dfA: ax.plot(dfA[xA], dfA["ETc"], label=f"{region_A} ETc", lw=1.5, color="#1f77b4")
+    #     if "ETc" in dfB: ax.plot(dfB[xB], dfB["ETc"], label=f"{region_B} ETc", lw=1.5, color="#ff7f0e")
+    #     if "ETazul" in dfA: ax.plot(dfA[xA], dfA["ETazul"], label=f"{region_A} ETazul", lw=1.2, color="#1f77b4", ls="--")
+    #     if "ETazul" in dfB: ax.plot(dfB[xB], dfB["ETazul"], label=f"{region_B} ETazul", lw=1.2, color="#ff7f0e", ls="--")
+    #     ax.set_title(f"Serie diaria — {region_A} vs {region_B}")
+    #     ax.set_xlabel(eje_opt); ax.set_ylabel("mm/día"); ax.legend()
+    #     fig.tight_layout(); st.pyplot(fig, use_container_width=True)
+
     with tabs_main[1]:
         xA = _xcol(dfA, eje_opt); xB = _xcol(dfB, eje_opt)
         fig, ax = plt.subplots(1,1, figsize=(12,4))
-        if "ETc" in dfA: ax.plot(dfA[xA], dfA["ETc"], label=f"{region_A} ETc", lw=1.5, color="#1f77b4")
-        if "ETc" in dfB: ax.plot(dfB[xB], dfB["ETc"], label=f"{region_B} ETc", lw=1.5, color="#ff7f0e")
-        if "ETazul" in dfA: ax.plot(dfA[xA], dfA["ETazul"], label=f"{region_A} ETazul", lw=1.2, color="#1f77b4", ls="--")
-        if "ETazul" in dfB: ax.plot(dfB[xB], dfB["ETazul"], label=f"{region_B} ETazul", lw=1.2, color="#ff7f0e", ls="--")
+        colores = {"ET0":"#4C78A8","ETc":"#F58518","ETverde":"#54A24B","ETazul":"#E45756","Pef":"#9D9D9D"}
+        for v in series_sel:
+            if v in dfA: ax.plot(dfA[xA], dfA[v], label=f"{region_A} {v}", lw=1.5, color=colores.get(v))
+            if v in dfB: ax.plot(dfB[xB], dfB[v], label=f"{region_B} {v}", lw=1.5, linestyle="--", color=colores.get(v))
         ax.set_title(f"Serie diaria — {region_A} vs {region_B}")
         ax.set_xlabel(eje_opt); ax.set_ylabel("mm/día"); ax.legend()
         fig.tight_layout(); st.pyplot(fig, use_container_width=True)

@@ -35,7 +35,7 @@ st.set_page_config(page_title="DataAqua — Dashboard 2", page_icon="💧", layo
 
 #RUTA_BASE          = Path("/lustre/home/mvalenzuela/Ocotillo/DataAqua")
 #RUTA_SALIDA_UNISON = RUTA_BASE / "Salidas_ETo12" / "Periodo de Cultivo ETo"
-RUTA_SALIDA_UNISON = (path)"data" / "Salidas_ETo12" / "Periodo de Cultivo ETo"
+RUTA_SALIDA_UNISON = Path("data") / "Salidas_ETo12_con_uac_y_hh" / "Periodo de Cultivo ETo"
 
 sns.set_style("whitegrid")
 plt.rcParams["figure.dpi"] = 120

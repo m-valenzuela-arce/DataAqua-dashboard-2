@@ -1036,6 +1036,26 @@
 #   streamlit run dashboard2.py
 # ===========================
 
+# ===========================
+# DataAqua Dashboard 2 (Streamlit)
+# ===========================
+# Modos:
+#  - Ciclo individual
+#  - Comparar ciclos (misma región)
+#  - Comparar regiones (mismo ciclo)
+#
+# Todo en una sola página (sin pestañas)
+# Secciones:
+#  - KPIs (en dos columnas)
+#  - Serie diaria (ET0, ETc, ETverde, ETazul, Pef)  [multiselect]
+#  - Temperaturas (Tmin, Tmean, Tmax)                [multiselect]
+#  - Meteorología: Rs + HR (ejes gemelos)            [multiselect]
+#  - Viento: Ux                                      (gráfica aparte)
+#
+# Ejecuta:
+#   streamlit run dashboard2.py
+# ===========================
+
 from pathlib import Path
 import os, re
 from datetime import datetime, timedelta
@@ -1082,6 +1102,13 @@ COLUMNAS_MIN = [
 # ---------------------------
 # Helpers de archivos
 # ---------------------------
+
+def hr():
+    st.markdown(
+        "<hr style='margin:0.5rem 0; border:none; border-top:1px solid #DDD;'/>",
+        unsafe_allow_html=True
+    )
+
 def parse_unison_filename(filename: str):
     """
     'Cajeme-FAO56-2014-2015-SALIDA.csv' -> ('Cajeme','2014-2015')
@@ -1330,149 +1357,165 @@ if modo == "Ciclo individual":
     if df.empty:
         st.error("No fue posible leer el archivo seleccionado."); st.stop()
 
-    # KPIs
+    # ===== KPIs (dos columnas) =====
     st.subheader(f"KPIs — {region_sel} ({ciclo_sel})")
+    colL, colR = st.columns(2)
     k = kpis_ext(df)
-    c1,c2,c3,c4 = st.columns(4)
-    c1.metric("Días del ciclo", f"{k['dias']}")
-    c2.metric("Fecha de siembra", f"{k['siembra'] or '—'}")
-    c3.metric("Fecha de cosecha", f"{k['cosecha'] or '—'}")
-    c4.metric("% Azul", f"{(k['eta_total']/k['etc_total']*100):.1f}%" if k['etc_total'] else "—")
+    with colL:
+        st.metric("Días del ciclo", f"{k['dias']}")
+        st.metric("Fecha de siembra", f"{k['siembra'] or '—'}")
+        st.metric("Fecha de cosecha", f"{k['cosecha'] or '—'}")
+        st.metric("ETc total [mm]", f"{k['etc_total']:.1f}")
+        st.metric("ETverde total [mm]", f"{k['etv_total']:.1f}")
+    with colR:
+        st.metric("% Azul", f"{(k['eta_total']/k['etc_total']*100):.1f}%" if k['etc_total'] else "—")
+        st.metric("ETazul total [mm]", f"{k['eta_total']:.1f}")
+        st.metric("Tmax / Tmin [°C]", f"{k['tmax']:.1f} / {k['tmin']:.1f}")
+        st.metric("UAC verde [m³/ha]", f"{k['uacv_ha']:.0f}" if not np.isnan(k['uacv_ha']) else "—")
+        st.metric("UAC azul [m³/ha]",  f"{k['uaca_ha']:.0f}" if not np.isnan(k['uaca_ha']) else "—")
+        # Si quieres también las HH:
+        st.metric("HH verde [m³/ton]", f"{k['hhv_ton']:.0f}" if not np.isnan(k['hhv_ton']) else "—")
+        st.metric("HH azul [m³/ton]",  f"{k['hha_ton']:.0f}" if not np.isnan(k['hha_ton']) else "—")
 
-    c5,c6,c7,c8 = st.columns(4)
-    c5.metric("ETc total [mm]", f"{k['etc_total']:.1f}")
-    c6.metric("ETazul total [mm]", f"{k['eta_total']:.1f}")
-    c7.metric("ETverde total [mm]", f"{k['etv_total']:.1f}")
-    c8.metric("Tmax / Tmin [°C]", f"{k['tmax']:.1f} / {k['tmin']:.1f}")
-
-    c9,c10,c11,c12 = st.columns(4)
-    c9.metric("UAC verde [m³/ha]", f"{k['uacv_ha']:.0f}" if not np.isnan(k['uacv_ha']) else "—")
-    c10.metric("UAC azul [m³/ha]",  f"{k['uaca_ha']:.0f}" if not np.isnan(k['uaca_ha']) else "—")
-    c11.metric("HH verde [m³/ton]", f"{k['hhv_ton']:.0f}" if not np.isnan(k['hhv_ton']) else "—")
-    c12.metric("HH azul [m³/ton]",  f"{k['hha_ton']:.0f}" if not np.isnan(k['hha_ton']) else "—")
-
-    st.divider()
+    hr()
 
     # Serie diaria (ET)
     st.markdown("### Serie diaria (ET)")
     et_opts = [v for v in ["ET0","ETc","ETverde","ETazul","Pef"] if v in df.columns]
     et_sel = st.multiselect("Series a mostrar", et_opts, default=et_opts, key="et_ind")
-    fig = fig_series(df, f"{region_sel} — {ciclo_sel}", eje=eje_opt, mostrar=et_sel or et_opts)
+    fig = fig_series(df, f"Serie diaria (ET) — {ciclo_sel}", eje=eje_opt, mostrar=et_sel or et_opts)
     st.pyplot(fig, use_container_width=True)
 
     # Temperaturas
     st.markdown("### Temperaturas")
     t_opts = [v for v in ["Tmin","Tmean","Tmax"] if v in df.columns]
     t_sel = st.multiselect("Series de temperatura", t_opts, default=t_opts, key="t_ind")
-    ftemp = fig_temperaturas(df, f"{region_sel} — {ciclo_sel}", eje=eje_opt, mostrar=t_sel or t_opts)
+    ftemp = fig_temperaturas(df, f"Temperaturas — {ciclo_sel}", eje=eje_opt, mostrar=t_sel or t_opts)
     st.pyplot(ftemp, use_container_width=True)
 
     # Meteorología (Rs y HR con multiselect)
     st.markdown("### Meteorología")
     met_opts = [v for v in ["Rs","HR"] if v in df.columns]
     met_sel = st.multiselect("Variables de meteorología", met_opts, default=met_opts, key="met_ind")
-    fmet = fig_meteo_rs_hr(df, f"{region_sel} — {ciclo_sel}", eje=eje_opt, mostrar=met_sel or met_opts)
+    fmet = fig_meteo_rs_hr(df, f"Meteorología — {ciclo_sel}", eje=eje_opt, mostrar=met_sel or met_opts)
     st.pyplot(fmet, use_container_width=True)
 
     # Viento (Ux) en gráfica aparte
     if "Ux" in df.columns:
         st.markdown("### Viento")
-        fux = fig_wind(df, f"{region_sel} — {ciclo_sel}", eje=eje_opt)
+        fux = fig_wind(df, f"Viento Ux — {ciclo_sel}", eje=eje_opt)
         st.pyplot(fux, use_container_width=True)
 
-    st.divider()
+    hr()
     with st.expander("Datos (primeras filas)"):
         st.dataframe(df.head(30), use_container_width=True)
 
-# --- Modo: Comparar ciclos (vertical, con separadores)
+# --- Modo: Comparar ciclos (vertical, apiladas, separador fino)
 elif modo == "Comparar ciclos":
     ruta_A = CAT_UNISON[(CAT_UNISON.Region==region_sel) & (CAT_UNISON.Ciclo==ciclo_A)]["Ruta"]
     ruta_B = CAT_UNISON[(CAT_UNISON.Region==region_sel) & (CAT_UNISON.Ciclo==ciclo_B)]["Ruta"]
     if ruta_A.empty or ruta_B.empty: st.error("No encontré ambos ciclos."); st.stop()
     dfA = leer_unison(ruta_A.iloc[0]); dfB = leer_unison(ruta_B.iloc[0])
 
+    # KPIs en dos columnas (A | B)
+    st.subheader(f"KPIs — {region_sel} (comparación de ciclos)")
+    colA, colB = st.columns(2)
+    kA, kB = kpis_ext(dfA), kpis_ext(dfB)
+    with colA:
+        st.markdown(f"**{ciclo_A}**")
+        st.metric("Días del ciclo", f"{kA['dias']}")
+        st.metric("% Azul", f"{(kA['eta_total']/kA['etc_total']*100):.1f}%" if kA['etc_total'] else "—")
+        st.metric("ETc total [mm]", f"{kA['etc_total']:.1f}")
+        st.metric("ETazul total [mm]", f"{kA['eta_total']:.1f}")
+        st.metric("UAC verde [m³/ha]", f"{kA['uacv_ha']:.0f}" if not np.isnan(kA['uacv_ha']) else "—")
+        st.metric("UAC azul [m³/ha]",  f"{kA['uaca_ha']:.0f}" if not np.isnan(kA['uaca_ha']) else "—")
+    with colB:
+        st.markdown(f"**{ciclo_B}**")
+        st.metric("Días del ciclo", f"{kB['dias']}")
+        st.metric("% Azul", f"{(kB['eta_total']/kB['etc_total']*100):.1f}%" if kB['etc_total'] else "—")
+        st.metric("ETc total [mm]", f"{kB['etc_total']:.1f}")
+        st.metric("ETazul total [mm]", f"{kB['eta_total']:.1f}")
+        st.metric("UAC verde [m³/ha]", f"{kB['uacv_ha']:.0f}" if not np.isnan(kB['uacv_ha']) else "—")
+        st.metric("UAC azul [m³/ha]",  f"{kB['uaca_ha']:.0f}" if not np.isnan(kB['uaca_ha']) else "—")
+
     # Opciones comunes para multiselects
     et_inter = [v for v in ["ET0","ETc","ETverde","ETazul","Pef"] if v in dfA.columns and v in dfB.columns]
     t_inter  = [v for v in ["Tmin","Tmean","Tmax"] if v in dfA.columns and v in dfB.columns]
     met_inter= [v for v in ["Rs","HR"] if v in dfA.columns and v in dfB.columns]
 
-    st.markdown("### Opciones de series (aplican a ambos ciclos)")
+    hr()
+    st.markdown("#### Opciones de series (aplican a ambos ciclos)")
     et_sel = st.multiselect("Serie diaria (ET)", et_inter, default=et_inter, key="et_cmp")
     t_sel  = st.multiselect("Temperaturas", t_inter,  default=t_inter,  key="t_cmp")
     met_sel= st.multiselect("Meteorología", met_inter, default=met_inter, key="met_cmp")
 
-    # Bloque A
-    st.divider()
-    st.subheader(f"{region_sel} — {ciclo_A}")
-    k = kpis_ext(dfA)
-    c1,c2,c3,c4 = st.columns(4)
-    c1.metric("Días del ciclo", f"{k['dias']}"); c2.metric("% Azul", f"{(k['eta_total']/k['etc_total']*100):.1f}%" if k['etc_total'] else "—")
-    c3.metric("ETc [mm]", f"{k['etc_total']:.1f}"); c4.metric("ETazul [mm]", f"{k['eta_total']:.1f}")
-    c5,c6 = st.columns(2)
-    c5.metric("UAC verde [m³/ha]", f"{k['uacv_ha']:.0f}" if not np.isnan(k['uacv_ha']) else "—")
-    c6.metric("UAC azul  [m³/ha]", f"{k['uaca_ha']:.0f}" if not np.isnan(k['uaca_ha']) else "—")
-    st.pyplot(fig_series(dfA, "Serie diaria (ET)", eje=eje_opt, mostrar=et_sel or et_inter), use_container_width=True)
-    st.pyplot(fig_temperaturas(dfA, "Temperaturas", eje=eje_opt, mostrar=t_sel or t_inter), use_container_width=True)
-    st.pyplot(fig_meteo_rs_hr(dfA, "Meteorología", eje=eje_opt, mostrar=met_sel or met_inter), use_container_width=True)
-    if "Ux" in dfA.columns: st.pyplot(fig_wind(dfA, "Viento Ux", eje=eje_opt), use_container_width=True)
+    # Bloque A (gráficas apiladas)
+    hr()
+    st.markdown(f"### {region_sel} — {ciclo_A}")
+    st.pyplot(fig_series(dfA, f"Serie diaria (ET) — {ciclo_A}", eje=eje_opt, mostrar=et_sel or et_inter), use_container_width=True)
+    st.pyplot(fig_temperaturas(dfA, f"Temperaturas — {ciclo_A}", eje=eje_opt, mostrar=t_sel or t_inter), use_container_width=True)
+    st.pyplot(fig_meteo_rs_hr(dfA, f"Meteorología — {ciclo_A}", eje=eje_opt, mostrar=met_sel or met_inter), use_container_width=True)
+    if "Ux" in dfA.columns: st.pyplot(fig_wind(dfA, f"Viento Ux — {ciclo_A}", eje=eje_opt), use_container_width=True)
 
-    # Bloque B
-    st.divider()
-    st.subheader(f"{region_sel} — {ciclo_B}")
-    k = kpis_ext(dfB)
-    c1,c2,c3,c4 = st.columns(4)
-    c1.metric("Días del ciclo", f"{k['dias']}"); c2.metric("% Azul", f"{(k['eta_total']/k['etc_total']*100):.1f}%" if k['etc_total'] else "—")
-    c3.metric("ETc [mm]", f"{k['etc_total']:.1f}"); c4.metric("ETazul [mm]", f"{k['eta_total']:.1f}")
-    c5,c6 = st.columns(2)
-    c5.metric("UAC verde [m³/ha]", f"{k['uacv_ha']:.0f}" if not np.isnan(k['uacv_ha']) else "—")
-    c6.metric("UAC azul  [m³/ha]", f"{k['uaca_ha']:.0f}" if not np.isnan(k['uaca_ha']) else "—")
-    st.pyplot(fig_series(dfB, "Serie diaria (ET)", eje=eje_opt, mostrar=et_sel or et_inter), use_container_width=True)
-    st.pyplot(fig_temperaturas(dfB, "Temperaturas", eje=eje_opt, mostrar=t_sel or t_inter), use_container_width=True)
-    st.pyplot(fig_meteo_rs_hr(dfB, "Meteorología", eje=eje_opt, mostrar=met_sel or met_inter), use_container_width=True)
-    if "Ux" in dfB.columns: st.pyplot(fig_wind(dfB, "Viento Ux", eje=eje_opt), use_container_width=True)
+    # Bloque B (debajo del A)
+    hr()
+    st.markdown(f"### {region_sel} — {ciclo_B}")
+    st.pyplot(fig_series(dfB, f"Serie diaria (ET) — {ciclo_B}", eje=eje_opt, mostrar=et_sel or et_inter), use_container_width=True)
+    st.pyplot(fig_temperaturas(dfB, f"Temperaturas — {ciclo_B}", eje=eje_opt, mostrar=t_sel or t_inter), use_container_width=True)
+    st.pyplot(fig_meteo_rs_hr(dfB, f"Meteorología — {ciclo_B}", eje=eje_opt, mostrar=met_sel or met_inter), use_container_width=True)
+    if "Ux" in dfB.columns: st.pyplot(fig_wind(dfB, f"Viento Ux — {ciclo_B}", eje=eje_opt), use_container_width=True)
 
-# --- Modo: Comparar regiones (vertical, con separadores)
+# --- Modo: Comparar regiones (vertical, apiladas, separador fino)
 elif modo == "Comparar regiones":
     ruta_A = CAT_UNISON[(CAT_UNISON.Region==region_A) & (CAT_UNISON.Ciclo==ciclo_sel)]["Ruta"]
     ruta_B = CAT_UNISON[(CAT_UNISON.Region==region_B) & (CAT_UNISON.Ciclo==ciclo_sel)]["Ruta"]
     if ruta_A.empty or ruta_B.empty: st.error("No encontré ambas regiones."); st.stop()
     dfA = leer_unison(ruta_A.iloc[0]); dfB = leer_unison(ruta_B.iloc[0])
 
+    # KPIs en dos columnas (A | B)
+    st.subheader(f"KPIs — {ciclo_sel} (comparación de regiones)")
+    colA, colB = st.columns(2)
+    kA, kB = kpis_ext(dfA), kpis_ext(dfB)
+    with colA:
+        st.markdown(f"**{region_A}**")
+        st.metric("Días del ciclo", f"{kA['dias']}")
+        st.metric("% Azul", f"{(kA['eta_total']/kA['etc_total']*100):.1f}%" if kA['etc_total'] else "—")
+        st.metric("ETc total [mm]", f"{kA['etc_total']:.1f}")
+        st.metric("ETazul total [mm]", f"{kA['eta_total']:.1f}")
+        st.metric("UAC verde [m³/ha]", f"{kA['uacv_ha']:.0f}" if not np.isnan(kA['uacv_ha']) else "—")
+        st.metric("UAC azul [m³/ha]",  f"{kA['uaca_ha']:.0f}" if not np.isnan(kA['uaca_ha']) else "—")
+    with colB:
+        st.markdown(f"**{region_B}**")
+        st.metric("Días del ciclo", f"{kB['dias']}")
+        st.metric("% Azul", f"{(kB['eta_total']/kB['etc_total']*100):.1f}%" if kB['etc_total'] else "—")
+        st.metric("ETc total [mm]", f"{kB['etc_total']:.1f}")
+        st.metric("ETazul total [mm]", f"{kB['eta_total']:.1f}")
+        st.metric("UAC verde [m³/ha]", f"{kB['uacv_ha']:.0f}" if not np.isnan(kB['uacv_ha']) else "—")
+        st.metric("UAC azul [m³/ha]",  f"{kB['uaca_ha']:.0f}" if not np.isnan(kB['uaca_ha']) else "—")
+
+    # Opciones comunes
     et_inter = [v for v in ["ET0","ETc","ETverde","ETazul","Pef"] if v in dfA.columns and v in dfB.columns]
     t_inter  = [v for v in ["Tmin","Tmean","Tmax"] if v in dfA.columns and v in dfB.columns]
     met_inter= [v for v in ["Rs","HR"] if v in dfA.columns and v in dfB.columns]
 
-    st.markdown("### Opciones de series (aplican a ambas regiones)")
+    hr()
+    st.markdown("#### Opciones de series (aplican a ambas regiones)")
     et_sel = st.multiselect("Serie diaria (ET)", et_inter, default=et_inter, key="et_cmp_reg")
     t_sel  = st.multiselect("Temperaturas", t_inter,  default=t_inter,  key="t_cmp_reg")
     met_sel= st.multiselect("Meteorología", met_inter, default=met_inter, key="met_cmp_reg")
 
     # Bloque Región A
-    st.divider()
-    st.subheader(f"{region_A} — {ciclo_sel}")
-    k = kpis_ext(dfA)
-    c1,c2,c3,c4 = st.columns(4)
-    c1.metric("Días del ciclo", f"{k['dias']}"); c2.metric("% Azul", f"{(k['eta_total']/k['etc_total']*100):.1f}%" if k['etc_total'] else "—")
-    c3.metric("ETc [mm]", f"{k['etc_total']:.1f}"); c4.metric("ETazul [mm]", f"{k['eta_total']:.1f}")
-    c5,c6 = st.columns(2)
-    c5.metric("UAC verde [m³/ha]", f"{k['uacv_ha']:.0f}" if not np.isnan(k['uacv_ha']) else "—")
-    c6.metric("UAC azul  [m³/ha]", f"{k['uaca_ha']:.0f}" if not np.isnan(k['uaca_ha']) else "—")
-    st.pyplot(fig_series(dfA, "Serie diaria (ET)", eje=eje_opt, mostrar=et_sel or et_inter), use_container_width=True)
-    st.pyplot(fig_temperaturas(dfA, "Temperaturas", eje=eje_opt, mostrar=t_sel or t_inter), use_container_width=True)
-    st.pyplot(fig_meteo_rs_hr(dfA, "Meteorología", eje=eje_opt, mostrar=met_sel or met_inter), use_container_width=True)
-    if "Ux" in dfA.columns: st.pyplot(fig_wind(dfA, "Viento Ux", eje=eje_opt), use_container_width=True)
+    hr()
+    st.markdown(f"### {region_A} — {ciclo_sel}")
+    st.pyplot(fig_series(dfA, f"Serie diaria (ET) — {ciclo_sel}", eje=eje_opt, mostrar=et_sel or et_inter), use_container_width=True)
+    st.pyplot(fig_temperaturas(dfA, f"Temperaturas — {ciclo_sel}", eje=eje_opt, mostrar=t_sel or t_inter), use_container_width=True)
+    st.pyplot(fig_meteo_rs_hr(dfA, f"Meteorología — {ciclo_sel}", eje=eje_opt, mostrar=met_sel or met_inter), use_container_width=True)
+    if "Ux" in dfA.columns: st.pyplot(fig_wind(dfA, f"Viento Ux — {ciclo_sel}", eje=eje_opt), use_container_width=True)
 
     # Bloque Región B
-    st.divider()
-    st.subheader(f"{region_B} — {ciclo_sel}")
-    k = kpis_ext(dfB)
-    c1,c2,c3,c4 = st.columns(4)
-    c1.metric("Días del ciclo", f"{k['dias']}"); c2.metric("% Azul", f"{(k['eta_total']/k['etc_total']*100):.1f}%" if k['etc_total'] else "—")
-    c3.metric("ETc [mm]", f"{k['etc_total']:.1f}"); c4.metric("ETazul [mm]", f"{k['eta_total']:.1f}")
-    c5,c6 = st.columns(2)
-    c5.metric("UAC verde [m³/ha]", f"{k['uacv_ha']:.0f}" if not np.isnan(k['uacv_ha']) else "—")
-    c6.metric("UAC azul  [m³/ha]", f"{k['uaca_ha']:.0f}" if not np.isnan(k['uaca_ha']) else "—")
-    st.pyplot(fig_series(dfB, "Serie diaria (ET)", eje=eje_opt, mostrar=et_sel or et_inter), use_container_width=True)
-    st.pyplot(fig_temperaturas(dfB, "Temperaturas", eje=eje_opt, mostrar=t_sel or t_inter), use_container_width=True)
-    st.pyplot(fig_meteo_rs_hr(dfB, "Meteorología", eje=eje_opt, mostrar=met_sel or met_inter), use_container_width=True)
-    if "Ux" in dfB.columns: st.pyplot(fig_wind(dfB, "Viento Ux", eje=eje_opt), use_container_width=True)
+    hr()
+    st.markdown(f"### {region_B} — {ciclo_sel}")
+    st.pyplot(fig_series(dfB, f"Serie diaria (ET) — {ciclo_sel}", eje=eje_opt, mostrar=et_sel or et_inter), use_container_width=True)
+    st.pyplot(fig_temperaturas(dfB, f"Temperaturas — {ciclo_sel}", eje=eje_opt, mostrar=t_sel or t_inter), use_container_width=True)
+    st.pyplot(fig_meteo_rs_hr(dfB, f"Meteorología — {ciclo_sel}", eje=eje_opt, mostrar=met_sel or met_inter), use_container_width=True)
+    if "Ux" in dfB.columns: st.pyplot(fig_wind(dfB, f"Viento Ux — {ciclo_sel}", eje=eje_opt), use_container_width=True)

@@ -1886,190 +1886,403 @@ with tab_vista:
 # ===========================
 # Pestaña: Modelos y Estadística (todo el análisis del cuaderno)
 # ===========================
+
+
+# with tab_modelos:
+#     st.subheader("Modelos y Estadística")
+
+#     # Imports locales (para no tocar la cabecera del archivo)
+#     import seaborn as sns
+#     from sklearn.model_selection import train_test_split
+#     from sklearn.linear_model import LinearRegression
+#     from sklearn.metrics import mean_squared_error, r2_score
+#     from sklearn.ensemble import RandomForestRegressor
+#     from sklearn.cluster import KMeans
+#     from sklearn.preprocessing import StandardScaler
+#     import plotly.express as px
+#     import warnings
+#     warnings.filterwarnings("ignore")
+
+#     def render_modelos_para(df: pd.DataFrame, titulo: str):
+#         st.markdown(f"### {titulo}")
+
+#         # ---------- Estadística descriptiva ----------
+#         cols_est = [c for c in ["Tmax","Tmin","Tmean","HR","Ux","Rs","ET0","ETc","ETverde","ETazul","Pef"] if c in df.columns]
+#         if cols_est:
+#             st.markdown("**Estadística descriptiva**")
+#             desc = df[cols_est].describe(percentiles=[0.25,0.5,0.75]).T
+#             st.dataframe(desc, use_container_width=True)
+
+#         # ---------- Matriz de correlación ----------
+#         if cols_est:
+#             st.markdown("**Matriz de correlación (upper)**")
+#             corr = df[cols_est].dropna().corr()
+#             fig, ax = plt.subplots(figsize=(7,5))
+#             mask = np.triu(np.ones_like(corr, dtype=bool))
+#             sns.heatmap(corr, annot=True, cmap="viridis", fmt=".2f", square=True, mask=mask, ax=ax)
+#             ax.set_title("Correlación")
+#             st.pyplot(fig, use_container_width=True)
+
+#         # ---------- Dispersión (scatter) ----------
+#         pares = [("Tmax","ET0"), ("Rs","ET0"), ("HR","ET0"), ("Ux","ET0"), ("ET0","ETc")]
+#         pares = [(x,y) for (x,y) in pares if x in df.columns and y in df.columns]
+#         if pares:
+#             st.markdown("**Dispersión de variables clave**")
+#             n = len(pares)
+#             ncols = 3
+#             nrows = int(np.ceil(n/ncols))
+#             fig, axes = plt.subplots(nrows, ncols, figsize=(6*ncols, 4*nrows))
+#             axes = np.atleast_2d(axes).ravel()
+#             for i,(xv,yv) in enumerate(pares):
+#                 sns.scatterplot(x=df[xv], y=df[yv], ax=axes[i])
+#                 axes[i].set_title(f"{xv} vs {yv}")
+#             for j in range(i+1, len(axes)):
+#                 axes[j].set_visible(False)
+#             st.pyplot(fig, use_container_width=True)
+
+#         # ---------- Regresión lineal para ET0 ----------
+#         feats = [c for c in ["Tmax","Tmin","HR","Ux","Rs"] if c in df.columns]
+#         if set(feats).issubset(df.columns) and "ET0" in df.columns:
+#             st.markdown("**Regresión lineal (ET0 ~ Tmax + Tmin + HR + Ux + Rs)**")
+#             dmod = df[feats+["ET0"]].dropna()
+#             if len(dmod) > 10:
+#                 X = dmod[feats]; y = dmod["ET0"]
+#                 Xtr, Xte, ytr, yte = train_test_split(X, y, test_size=0.2, random_state=42)
+#                 lm = LinearRegression().fit(Xtr, ytr)
+#                 yhat = lm.predict(Xte)
+#                 r2 = r2_score(yte, yhat); mse = mean_squared_error(yte, yhat)
+#                 st.write(f"R² = {r2:.4f}  |  MSE = {mse:.4f}")
+#                 fig, ax = plt.subplots(figsize=(5,4))
+#                 ax.scatter(yte, yhat, alpha=0.7)
+#                 m = [min(yte.min(), yhat.min()), max(yte.max(), yhat.max())]
+#                 ax.plot(m, m, "r--")
+#                 ax.set_xlabel("ET0 real"); ax.set_ylabel("ET0 predicho")
+#                 ax.set_title("Predicho vs Real (Regresión lineal)")
+#                 st.pyplot(fig, use_container_width=True)
+
+#         # ---------- Random Forest para ET0 ----------
+#         if set(feats).issubset(df.columns) and "ET0" in df.columns:
+#             st.markdown("**Random Forest (ET0)**")
+#             dmod = df[feats+["ET0"]].dropna()
+#             if len(dmod) > 10:
+#                 X = dmod[feats]; y = dmod["ET0"]
+#                 Xtr, Xte, ytr, yte = train_test_split(X, y, test_size=0.2, random_state=42)
+#                 rf = RandomForestRegressor(n_estimators=100, random_state=42).fit(Xtr, ytr)
+#                 yhat = rf.predict(Xte)
+#                 st.write(f"R² = {r2_score(yte, yhat):.4f}  |  MSE = {mean_squared_error(yte, yhat):.4f}")
+#                 imp = pd.Series(rf.feature_importances_, index=feats).sort_values(ascending=False)
+#                 st.bar_chart(imp)
+
+#         # ---------- Clustering (KMeans) sobre meteo ----------
+#         cl_feats = [c for c in ["Tmax","Tmin","HR","Ux","Rs"] if c in df.columns]
+#         if len(cl_feats) >= 3:
+#             st.markdown("**Clustering K-Means (método del codo + clusters)**")
+#             X0 = df[cl_feats].dropna()
+#             if len(X0) > 20:
+#                 scaler = StandardScaler()
+#                 Xs = scaler.fit_transform(X0)
+
+#                 # Método del codo
+#                 inertia = []
+#                 ks = list(range(2, 9))
+#                 for k_ in ks:
+#                     km = KMeans(n_clusters=k_, random_state=42, n_init="auto").fit(Xs)
+#                     inertia.append(km.inertia_)
+#                 fig, ax = plt.subplots(figsize=(5,3))
+#                 ax.plot(ks, inertia, marker="o")
+#                 ax.set_xlabel("k"); ax.set_ylabel("Inercia"); ax.set_title("Método del codo")
+#                 st.pyplot(fig, use_container_width=True)
+
+#                 # Elegimos k=5 por consistencia con el cuaderno
+#                 k_final = 5 if len(X0) >= 50 else min(4, len(X0)//5) or 2
+#                 km = KMeans(n_clusters=k_final, random_state=42, n_init="auto")
+#                 grupos = km.fit_predict(Xs)
+#                 dfK = X0.copy()
+#                 dfK["Grupo"] = grupos
+
+#                 st.write("**Scatter Tmax vs Rs (coloreado por Grupo)**")
+#                 fig, ax = plt.subplots(figsize=(6,4))
+#                 sns.scatterplot(data=dfK, x="Tmax", y="Rs", hue="Grupo", palette="Set2", ax=ax)
+#                 st.pyplot(fig, use_container_width=True)
+
+#                 # Boxplots por década y grupo (si hay 'decada')
+#                 if "decada" in df.columns:
+#                     st.write("**Distribución por década y grupo (Plotly)**")
+#                     for var in [c for c in cl_feats if c in df.columns]:
+#                         figpx = px.box(
+#                             df.assign(Grupo=grupos),
+#                             x="decada", y=var, color="Grupo",
+#                             title=f"{var} por grupo y década",
+#                             labels={"decada":"Década", var:var, "Grupo":"Grupo"},
+#                             points="all"
+#                         )
+#                         st.plotly_chart(figpx, use_container_width=True)
+
+#         # ---------- Clustering con ET0 y ETc también ----------
+#         cl2 = [c for c in ["Tmax","Tmin","HR","Ux","Rs","ET0","ETc"] if c in df.columns]
+#         if len(cl2) >= 4:
+#             st.markdown("**Clustering K-Means (incluye ET0 y ETc)**")
+#             X1 = df[cl2].dropna()
+#             if len(X1) > 20:
+#                 scaler = StandardScaler(); Xs = scaler.fit_transform(X1)
+#                 kmeans = KMeans(n_clusters=5, random_state=42, n_init="auto").fit(Xs)
+#                 g2 = kmeans.predict(Xs)
+#                 df2 = X1.copy(); df2["Grupo"] = g2
+#                 stats = df2.groupby("Grupo")[cl2].mean()
+#                 st.write("Promedios por grupo:")
+#                 st.dataframe(stats, use_container_width=True)
+
+#                 # Scatter adicional
+#                 if "Tmax" in df2 and "Rs" in df2:
+#                     fig, ax = plt.subplots(figsize=(6,4))
+#                     sns.scatterplot(data=df2, x="Tmax", y="Rs", hue="Grupo", palette="Set1", ax=ax)
+#                     ax.set_title("Clasificación de días climáticos (Tmax vs Rs)")
+#                     st.pyplot(fig, use_container_width=True)
+
+#         st.markdown("---")
+
+#     # --- CICLO INDIVIDUAL (un bloque) ---
+#     if modo == "Ciclo individual":
+#         ruta_sel = CAT_UNISON[(CAT_UNISON.Region==region_sel) & (CAT_UNISON.Ciclo==ciclo_sel)]["Ruta"]
+#         if ruta_sel.empty:
+#             st.warning(f"No encontré CSV para {region_sel} / {ciclo_sel}")
+#         else:
+#             dfM = leer_unison(ruta_sel.iloc[0])
+#             if dfM.empty:
+#                 st.warning("No fue posible leer el archivo seleccionado.")
+#             else:
+#                 render_modelos_para(dfM, f"{region_sel} — {ciclo_sel}")
+
+#     # --- COMPARAR CICLOS (dos bloques: A y B) ---
+#     elif modo == "Comparar ciclos":
+#         ruta_A = CAT_UNISON[(CAT_UNISON.Region==region_sel) & (CAT_UNISON.Ciclo==ciclo_A)]["Ruta"]
+#         ruta_B = CAT_UNISON[(CAT_UNISON.Region==region_sel) & (CAT_UNISON.Ciclo==ciclo_B)]["Ruta"]
+#         if ruta_A.empty or ruta_B.empty:
+#             st.warning("No encontré ambos ciclos para mostrar análisis.")
+#         else:
+#             dfA = leer_unison(ruta_A.iloc[0]); dfB = leer_unison(ruta_B.iloc[0])
+#             render_modelos_para(dfA, f"{region_sel} — {ciclo_A}")
+#             render_modelos_para(dfB, f"{region_sel} — {ciclo_B}")
+
+#     # --- COMPARAR REGIONES (dos bloques: A y B) ---
+#     elif modo == "Comparar regiones":
+#         ruta_A = CAT_UNISON[(CAT_UNISON.Region==region_A) & (CAT_UNISON.Ciclo==ciclo_sel)]["Ruta"]
+#         ruta_B = CAT_UNISON[(CAT_UNISON.Region==region_B) & (CAT_UNISON.Ciclo==ciclo_sel)]["Ruta"]
+#         if ruta_A.empty or ruta_B.empty:
+#             st.warning("No encontré ambas regiones para mostrar análisis.")
+#         else:
+#             dfA = leer_unison(ruta_A.iloc[0]); dfB = leer_unison(ruta_B.iloc[0])
+#             render_modelos_para(dfA, f"{region_A} — {ciclo_sel}")
+#             render_modelos_para(dfB, f"{region_B} — {ciclo_sel}")
+
+
+# ===========================
+# Pestaña: Modelos y Estadística (todo el análisis del cuaderno)
+# ===========================
 with tab_modelos:
     st.subheader("Modelos y Estadística")
 
-    # Imports locales (para no tocar la cabecera del archivo)
-    import seaborn as sns
-    from sklearn.model_selection import train_test_split
-    from sklearn.linear_model import LinearRegression
-    from sklearn.metrics import mean_squared_error, r2_score
-    from sklearn.ensemble import RandomForestRegressor
-    from sklearn.cluster import KMeans
-    from sklearn.preprocessing import StandardScaler
-    import plotly.express as px
-    import warnings
-    warnings.filterwarnings("ignore")
+    # Imports protegidos para no tumbar la app si faltan deps
+    HAVE_SKLEARN = True
+    HAVE_PLOTLY  = True
+    try:
+        import seaborn as sns
+        from sklearn.model_selection import train_test_split
+        from sklearn.linear_model import LinearRegression
+        from sklearn.metrics import mean_squared_error, r2_score
+        from sklearn.ensemble import RandomForestRegressor
+        from sklearn.cluster import KMeans
+        from sklearn.preprocessing import StandardScaler
+    except Exception as e:
+        HAVE_SKLEARN = False
+        err_sklearn = str(e)
 
-    def render_modelos_para(df: pd.DataFrame, titulo: str):
-        st.markdown(f"### {titulo}")
+    try:
+        import plotly.express as px
+    except Exception as e:
+        HAVE_PLOTLY = False
+        err_plotly = str(e)
 
-        # ---------- Estadística descriptiva ----------
-        cols_est = [c for c in ["Tmax","Tmin","Tmean","HR","Ux","Rs","ET0","ETc","ETverde","ETazul","Pef"] if c in df.columns]
-        if cols_est:
-            st.markdown("**Estadística descriptiva**")
-            desc = df[cols_est].describe(percentiles=[0.25,0.5,0.75]).T
-            st.dataframe(desc, use_container_width=True)
+    if not HAVE_SKLEARN:
+        st.warning(
+            "Faltan dependencias para esta pestaña (scikit-learn). "
+            "El resto del dashboard funciona. Instala las dependencias y recarga."
+        )
 
-        # ---------- Matriz de correlación ----------
-        if cols_est:
-            st.markdown("**Matriz de correlación (upper)**")
-            corr = df[cols_est].dropna().corr()
-            fig, ax = plt.subplots(figsize=(7,5))
-            mask = np.triu(np.ones_like(corr, dtype=bool))
-            sns.heatmap(corr, annot=True, cmap="viridis", fmt=".2f", square=True, mask=mask, ax=ax)
-            ax.set_title("Correlación")
-            st.pyplot(fig, use_container_width=True)
+    # Si falta sklearn NO definimos ni usamos render_modelos_para
+    if HAVE_SKLEARN:
+        import warnings
+        warnings.filterwarnings("ignore")
 
-        # ---------- Dispersión (scatter) ----------
-        pares = [("Tmax","ET0"), ("Rs","ET0"), ("HR","ET0"), ("Ux","ET0"), ("ET0","ETc")]
-        pares = [(x,y) for (x,y) in pares if x in df.columns and y in df.columns]
-        if pares:
-            st.markdown("**Dispersión de variables clave**")
-            n = len(pares)
-            ncols = 3
-            nrows = int(np.ceil(n/ncols))
-            fig, axes = plt.subplots(nrows, ncols, figsize=(6*ncols, 4*nrows))
-            axes = np.atleast_2d(axes).ravel()
-            for i,(xv,yv) in enumerate(pares):
-                sns.scatterplot(x=df[xv], y=df[yv], ax=axes[i])
-                axes[i].set_title(f"{xv} vs {yv}")
-            for j in range(i+1, len(axes)):
-                axes[j].set_visible(False)
-            st.pyplot(fig, use_container_width=True)
+        def render_modelos_para(df: pd.DataFrame, titulo: str):
+            st.markdown(f"### {titulo}")
 
-        # ---------- Regresión lineal para ET0 ----------
-        feats = [c for c in ["Tmax","Tmin","HR","Ux","Rs"] if c in df.columns]
-        if set(feats).issubset(df.columns) and "ET0" in df.columns:
-            st.markdown("**Regresión lineal (ET0 ~ Tmax + Tmin + HR + Ux + Rs)**")
-            dmod = df[feats+["ET0"]].dropna()
-            if len(dmod) > 10:
-                X = dmod[feats]; y = dmod["ET0"]
-                Xtr, Xte, ytr, yte = train_test_split(X, y, test_size=0.2, random_state=42)
-                lm = LinearRegression().fit(Xtr, ytr)
-                yhat = lm.predict(Xte)
-                r2 = r2_score(yte, yhat); mse = mean_squared_error(yte, yhat)
-                st.write(f"R² = {r2:.4f}  |  MSE = {mse:.4f}")
-                fig, ax = plt.subplots(figsize=(5,4))
-                ax.scatter(yte, yhat, alpha=0.7)
-                m = [min(yte.min(), yhat.min()), max(yte.max(), yhat.max())]
-                ax.plot(m, m, "r--")
-                ax.set_xlabel("ET0 real"); ax.set_ylabel("ET0 predicho")
-                ax.set_title("Predicho vs Real (Regresión lineal)")
+            # ---------- Estadística descriptiva ----------
+            cols_est = [c for c in ["Tmax","Tmin","Tmean","HR","Ux","Rs","ET0","ETc","ETverde","ETazul","Pef"] if c in df.columns]
+            if cols_est:
+                st.markdown("**Estadística descriptiva**")
+                desc = df[cols_est].describe(percentiles=[0.25,0.5,0.75]).T
+                st.dataframe(desc, use_container_width=True)
+
+            # ---------- Matriz de correlación ----------
+            if cols_est:
+                st.markdown("**Matriz de correlación (upper)**")
+                corr = df[cols_est].dropna().corr()
+                fig, ax = plt.subplots(figsize=(7,5))
+                mask = np.triu(np.ones_like(corr, dtype=bool))
+                sns.heatmap(corr, annot=True, cmap="viridis", fmt=".2f", square=True, mask=mask, ax=ax)
+                ax.set_title("Correlación")
                 st.pyplot(fig, use_container_width=True)
 
-        # ---------- Random Forest para ET0 ----------
-        if set(feats).issubset(df.columns) and "ET0" in df.columns:
-            st.markdown("**Random Forest (ET0)**")
-            dmod = df[feats+["ET0"]].dropna()
-            if len(dmod) > 10:
-                X = dmod[feats]; y = dmod["ET0"]
-                Xtr, Xte, ytr, yte = train_test_split(X, y, test_size=0.2, random_state=42)
-                rf = RandomForestRegressor(n_estimators=100, random_state=42).fit(Xtr, ytr)
-                yhat = rf.predict(Xte)
-                st.write(f"R² = {r2_score(yte, yhat):.4f}  |  MSE = {mean_squared_error(yte, yhat):.4f}")
-                imp = pd.Series(rf.feature_importances_, index=feats).sort_values(ascending=False)
-                st.bar_chart(imp)
-
-        # ---------- Clustering (KMeans) sobre meteo ----------
-        cl_feats = [c for c in ["Tmax","Tmin","HR","Ux","Rs"] if c in df.columns]
-        if len(cl_feats) >= 3:
-            st.markdown("**Clustering K-Means (método del codo + clusters)**")
-            X0 = df[cl_feats].dropna()
-            if len(X0) > 20:
-                scaler = StandardScaler()
-                Xs = scaler.fit_transform(X0)
-
-                # Método del codo
-                inertia = []
-                ks = list(range(2, 9))
-                for k_ in ks:
-                    km = KMeans(n_clusters=k_, random_state=42, n_init="auto").fit(Xs)
-                    inertia.append(km.inertia_)
-                fig, ax = plt.subplots(figsize=(5,3))
-                ax.plot(ks, inertia, marker="o")
-                ax.set_xlabel("k"); ax.set_ylabel("Inercia"); ax.set_title("Método del codo")
+            # ---------- Dispersión (scatter) ----------
+            pares = [("Tmax","ET0"), ("Rs","ET0"), ("HR","ET0"), ("Ux","ET0"), ("ET0","ETc")]
+            pares = [(x,y) for (x,y) in pares if x in df.columns and y in df.columns]
+            if pares:
+                st.markdown("**Dispersión de variables clave**")
+                n = len(pares)
+                ncols = 3
+                nrows = int(np.ceil(n/ncols))
+                fig, axes = plt.subplots(nrows, ncols, figsize=(6*ncols, 4*nrows))
+                axes = np.atleast_2d(axes).ravel()
+                for i,(xv,yv) in enumerate(pares):
+                    sns.scatterplot(x=df[xv], y=df[yv], ax=axes[i])
+                    axes[i].set_title(f"{xv} vs {yv}")
+                for j in range(i+1, len(axes)):
+                    axes[j].set_visible(False)
                 st.pyplot(fig, use_container_width=True)
 
-                # Elegimos k=5 por consistencia con el cuaderno
-                k_final = 5 if len(X0) >= 50 else min(4, len(X0)//5) or 2
-                km = KMeans(n_clusters=k_final, random_state=42, n_init="auto")
-                grupos = km.fit_predict(Xs)
-                dfK = X0.copy()
-                dfK["Grupo"] = grupos
-
-                st.write("**Scatter Tmax vs Rs (coloreado por Grupo)**")
-                fig, ax = plt.subplots(figsize=(6,4))
-                sns.scatterplot(data=dfK, x="Tmax", y="Rs", hue="Grupo", palette="Set2", ax=ax)
-                st.pyplot(fig, use_container_width=True)
-
-                # Boxplots por década y grupo (si hay 'decada')
-                if "decada" in df.columns:
-                    st.write("**Distribución por década y grupo (Plotly)**")
-                    for var in [c for c in cl_feats if c in df.columns]:
-                        figpx = px.box(
-                            df.assign(Grupo=grupos),
-                            x="decada", y=var, color="Grupo",
-                            title=f"{var} por grupo y década",
-                            labels={"decada":"Década", var:var, "Grupo":"Grupo"},
-                            points="all"
-                        )
-                        st.plotly_chart(figpx, use_container_width=True)
-
-        # ---------- Clustering con ET0 y ETc también ----------
-        cl2 = [c for c in ["Tmax","Tmin","HR","Ux","Rs","ET0","ETc"] if c in df.columns]
-        if len(cl2) >= 4:
-            st.markdown("**Clustering K-Means (incluye ET0 y ETc)**")
-            X1 = df[cl2].dropna()
-            if len(X1) > 20:
-                scaler = StandardScaler(); Xs = scaler.fit_transform(X1)
-                kmeans = KMeans(n_clusters=5, random_state=42, n_init="auto").fit(Xs)
-                g2 = kmeans.predict(Xs)
-                df2 = X1.copy(); df2["Grupo"] = g2
-                stats = df2.groupby("Grupo")[cl2].mean()
-                st.write("Promedios por grupo:")
-                st.dataframe(stats, use_container_width=True)
-
-                # Scatter adicional
-                if "Tmax" in df2 and "Rs" in df2:
-                    fig, ax = plt.subplots(figsize=(6,4))
-                    sns.scatterplot(data=df2, x="Tmax", y="Rs", hue="Grupo", palette="Set1", ax=ax)
-                    ax.set_title("Clasificación de días climáticos (Tmax vs Rs)")
+            # ---------- Regresión lineal para ET0 ----------
+            feats = [c for c in ["Tmax","Tmin","HR","Ux","Rs"] if c in df.columns]
+            if set(feats).issubset(df.columns) and "ET0" in df.columns:
+                st.markdown("**Regresión lineal (ET0 ~ Tmax + Tmin + HR + Ux + Rs)**")
+                dmod = df[feats+["ET0"]].dropna()
+                if len(dmod) > 10:
+                    X = dmod[feats]; y = dmod["ET0"]
+                    Xtr, Xte, ytr, yte = train_test_split(X, y, test_size=0.2, random_state=42)
+                    lm = LinearRegression().fit(Xtr, ytr)
+                    yhat = lm.predict(Xte)
+                    r2 = r2_score(yte, yhat); mse = mean_squared_error(yte, yhat)
+                    st.write(f"R² = {r2:.4f}  |  MSE = {mse:.4f}")
+                    fig, ax = plt.subplots(figsize=(5,4))
+                    ax.scatter(yte, yhat, alpha=0.7)
+                    m = [min(yte.min(), yhat.min()), max(yte.max(), yhat.max())]
+                    ax.plot(m, m, "r--")
+                    ax.set_xlabel("ET0 real"); ax.set_ylabel("ET0 predicho")
+                    ax.set_title("Predicho vs Real (Regresión lineal)")
                     st.pyplot(fig, use_container_width=True)
 
-        st.markdown("---")
+            # ---------- Random Forest para ET0 ----------
+            if set(feats).issubset(df.columns) and "ET0" in df.columns:
+                st.markdown("**Random Forest (ET0)**")
+                dmod = df[feats+["ET0"]].dropna()
+                if len(dmod) > 10:
+                    X = dmod[feats]; y = dmod["ET0"]
+                    Xtr, Xte, ytr, yte = train_test_split(X, y, test_size=0.2, random_state=42)
+                    rf = RandomForestRegressor(n_estimators=100, random_state=42).fit(Xtr, ytr)
+                    yhat = rf.predict(Xte)
+                    st.write(f"R² = {r2_score(yte, yhat):.4f}  |  MSE = {mean_squared_error(yte, yhat):.4f}")
+                    imp = pd.Series(rf.feature_importances_, index=feats).sort_values(ascending=False)
+                    st.bar_chart(imp)
 
-    # --- CICLO INDIVIDUAL (un bloque) ---
-    if modo == "Ciclo individual":
-        ruta_sel = CAT_UNISON[(CAT_UNISON.Region==region_sel) & (CAT_UNISON.Ciclo==ciclo_sel)]["Ruta"]
-        if ruta_sel.empty:
-            st.warning(f"No encontré CSV para {region_sel} / {ciclo_sel}")
-        else:
-            dfM = leer_unison(ruta_sel.iloc[0])
-            if dfM.empty:
-                st.warning("No fue posible leer el archivo seleccionado.")
+            # ---------- Clustering (KMeans) sobre meteo ----------
+            cl_feats = [c for c in ["Tmax","Tmin","HR","Ux","Rs"] if c in df.columns]
+            if len(cl_feats) >= 3:
+                st.markdown("**Clustering K-Means (método del codo + clusters)**")
+                X0 = df[cl_feats].dropna()
+                if len(X0) > 20:
+                    scaler = StandardScaler()
+                    Xs = scaler.fit_transform(X0)
+
+                    # Método del codo
+                    inertia = []
+                    ks = list(range(2, 9))
+                    for k_ in ks:
+                        km = KMeans(n_clusters=k_, random_state=42, n_init="auto").fit(Xs)
+                        inertia.append(km.inertia_)
+                    fig, ax = plt.subplots(figsize=(5,3))
+                    ax.plot(ks, inertia, marker="o")
+                    ax.set_xlabel("k"); ax.set_ylabel("Inercia"); ax.set_title("Método del codo")
+                    st.pyplot(fig, use_container_width=True)
+
+                    # Elegimos k=5 por consistencia con el cuaderno
+                    k_final = 5 if len(X0) >= 50 else min(4, len(X0)//5) or 2
+                    km = KMeans(n_clusters=k_final, random_state=42, n_init="auto")
+                    grupos = km.fit_predict(Xs)
+                    dfK = X0.copy()
+                    dfK["Grupo"] = grupos
+
+                    st.write("**Scatter Tmax vs Rs (coloreado por Grupo)**")
+                    fig, ax = plt.subplots(figsize=(6,4))
+                    sns.scatterplot(data=dfK, x="Tmax", y="Rs", hue="Grupo", palette="Set2", ax=ax)
+                    st.pyplot(fig, use_container_width=True)
+
+                    # Boxplots por década y grupo (si hay 'decada' y si tenemos plotly)
+                    if "decada" in df.columns and HAVE_PLOTLY:
+                        st.write("**Distribución por década y grupo (Plotly)**")
+                        for var in [c for c in cl_feats if c in df.columns]:
+                            figpx = px.box(
+                                df.assign(Grupo=grupos),
+                                x="decada", y=var, color="Grupo",
+                                title=f"{var} por grupo y década",
+                                labels={"decada":"Década", var:var, "Grupo":"Grupo"},
+                                points="all"
+                            )
+                            st.plotly_chart(figpx, use_container_width=True)
+
+            # ---------- Clustering con ET0 y ETc también ----------
+            cl2 = [c for c in ["Tmax","Tmin","HR","Ux","Rs","ET0","ETc"] if c in df.columns]
+            if len(cl2) >= 4:
+                st.markdown("**Clustering K-Means (incluye ET0 y ETc)**")
+                X1 = df[cl2].dropna()
+                if len(X1) > 20:
+                    scaler = StandardScaler(); Xs = scaler.fit_transform(X1)
+                    kmeans = KMeans(n_clusters=5, random_state=42, n_init="auto").fit(Xs)
+                    g2 = kmeans.predict(Xs)
+                    df2 = X1.copy(); df2["Grupo"] = g2
+                    stats = df2.groupby("Grupo")[cl2].mean()
+                    st.write("Promedios por grupo:")
+                    st.dataframe(stats, use_container_width=True)
+
+                    # Scatter adicional
+                    if "Tmax" in df2 and "Rs" in df2:
+                        fig, ax = plt.subplots(figsize=(6,4))
+                        sns.scatterplot(data=df2, x="Tmax", y="Rs", hue="Grupo", palette="Set1", ax=ax)
+                        ax.set_title("Clasificación de días climáticos (Tmax vs Rs)")
+                        st.pyplot(fig, use_container_width=True)
+
+            st.markdown("---")
+
+        # --- CICLO INDIVIDUAL (un bloque) ---
+        if modo == "Ciclo individual":
+            ruta_sel = CAT_UNISON[(CAT_UNISON.Region==region_sel) & (CAT_UNISON.Ciclo==ciclo_sel)]["Ruta"]
+            if ruta_sel.empty:
+                st.warning(f"No encontré CSV para {region_sel} / {ciclo_sel}")
             else:
-                render_modelos_para(dfM, f"{region_sel} — {ciclo_sel}")
+                dfM = leer_unison(ruta_sel.iloc[0])
+                if dfM.empty:
+                    st.warning("No fue posible leer el archivo seleccionado.")
+                else:
+                    render_modelos_para(dfM, f"{region_sel} — {ciclo_sel}")
 
-    # --- COMPARAR CICLOS (dos bloques: A y B) ---
-    elif modo == "Comparar ciclos":
-        ruta_A = CAT_UNISON[(CAT_UNISON.Region==region_sel) & (CAT_UNISON.Ciclo==ciclo_A)]["Ruta"]
-        ruta_B = CAT_UNISON[(CAT_UNISON.Region==region_sel) & (CAT_UNISON.Ciclo==ciclo_B)]["Ruta"]
-        if ruta_A.empty or ruta_B.empty:
-            st.warning("No encontré ambos ciclos para mostrar análisis.")
-        else:
-            dfA = leer_unison(ruta_A.iloc[0]); dfB = leer_unison(ruta_B.iloc[0])
-            render_modelos_para(dfA, f"{region_sel} — {ciclo_A}")
-            render_modelos_para(dfB, f"{region_sel} — {ciclo_B}")
+        # --- COMPARAR CICLOS (dos bloques: A y B) ---
+        elif modo == "Comparar ciclos":
+            ruta_A = CAT_UNISON[(CAT_UNISON.Region==region_sel) & (CAT_UNISON.Ciclo==ciclo_A)]["Ruta"]
+            ruta_B = CAT_UNISON[(CAT_UNISON.Region==region_sel) & (CAT_UNISON.Ciclo==ciclo_B)]["Ruta"]
+            if ruta_A.empty or ruta_B.empty:
+                st.warning("No encontré ambos ciclos para mostrar análisis.")
+            else:
+                dfA = leer_unison(ruta_A.iloc[0]); dfB = leer_unison(ruta_B.iloc[0])
+                render_modelos_para(dfA, f"{region_sel} — {ciclo_A}")
+                render_modelos_para(dfB, f"{region_sel} — {ciclo_B}")
 
-    # --- COMPARAR REGIONES (dos bloques: A y B) ---
-    elif modo == "Comparar regiones":
-        ruta_A = CAT_UNISON[(CAT_UNISON.Region==region_A) & (CAT_UNISON.Ciclo==ciclo_sel)]["Ruta"]
-        ruta_B = CAT_UNISON[(CAT_UNISON.Region==region_B) & (CAT_UNISON.Ciclo==ciclo_sel)]["Ruta"]
-        if ruta_A.empty or ruta_B.empty:
-            st.warning("No encontré ambas regiones para mostrar análisis.")
-        else:
-            dfA = leer_unison(ruta_A.iloc[0]); dfB = leer_unison(ruta_B.iloc[0])
-            render_modelos_para(dfA, f"{region_A} — {ciclo_sel}")
-            render_modelos_para(dfB, f"{region_B} — {ciclo_sel}")
+        # --- COMPARAR REGIONES (dos bloques: A y B) ---
+        elif modo == "Comparar regiones":
+            ruta_A = CAT_UNISON[(CAT_UNISON.Region==region_A) & (CAT_UNISON.Ciclo==ciclo_sel)]["Ruta"]
+            ruta_B = CAT_UNISON[(CAT_UNISON.Region==region_B) & (CAT_UNISON.Ciclo==ciclo_sel)]["Ruta"]
+            if ruta_A.empty or ruta_B.empty:
+                st.warning("No encontré ambas regiones para mostrar análisis.")
+            else:
+                dfA = leer_unison(ruta_A.iloc[0]); dfB = leer_unison(ruta_B.iloc[0])
+                render_modelos_para(dfA, f"{region_A} — {ciclo_sel}")
+                render_modelos_para(dfB, f"{region_B} — {ciclo_sel}")
 

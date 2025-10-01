@@ -767,234 +767,542 @@ with tab_vista:
 #                 render_modelos_para(dfA, f"{region_A} — {ciclo_sel}")
 #                 render_modelos_para(dfB, f"{region_B} — {ciclo_sel}")
 
+# with tab_modelos:
+#     st.subheader("Modelos y Estadística")
+
+#     # ---------------------------
+#     # util: columna(s) presentes rápido
+#     # ---------------------------
+#     def _presentes(df, cols):
+#         return [c for c in cols if c in df.columns]
+
+#     # ---------------------------
+#     # MODO: CICLO INDIVIDUAL
+#     # ---------------------------
+#     if modo == "Ciclo individual":
+#         ruta_sel = CAT_UNISON[(CAT_UNISON.Region==region_sel) & (CAT_UNISON.Ciclo==ciclo_sel)]["Ruta"]
+#         if ruta_sel.empty:
+#             st.warning(f"No encontré CSV para {region_sel} / {ciclo_sel}")
+#         else:
+#             df = leer_unison(ruta_sel.iloc[0])
+#             if df.empty:
+#                 st.warning("No fue posible leer el archivo seleccionado.")
+#             else:
+#                 st.markdown(f"**{region_sel} — {ciclo_sel}**")
+
+#                 # ===== Estadística descriptiva (TABLA COMPLETA, sin scroll) =====
+#                 cols_est = _presentes(df, ["Tmax","Tmin","Tmean","HR","Ux","Rs","ET0","ETc","ETverde","ETazul","Pef"])
+#                 if cols_est:
+#                     desc = df[cols_est].describe(percentiles=[0.25,0.5,0.75]).T
+#                     st.table(desc)  # tabla estática, sin scroll
+#                 else:
+#                     st.info("No encontré columnas numéricas esperadas para estadística descriptiva.")
+
+#                 st.markdown("<hr style='margin:0.8rem 0; border:none; border-top:1px solid #DDD;'/>",
+#                             unsafe_allow_html=True)
+
+#                 # ===== Correlación (más pequeña y centrada) =====
+#                 df_corr = df[cols_est].dropna()
+#                 if not df_corr.empty:
+#                     import seaborn as sns
+#                     corr_matrix = df_corr.corr()
+#                     fig, ax = plt.subplots(figsize=(6, 4))
+#                     mask = np.triu(np.ones_like(corr_matrix, dtype=bool))
+#                     sns.heatmap(
+#                         corr_matrix, ax=ax,
+#                         annot=True, fmt=".2f", cmap="viridis", square=True, mask=mask,
+#                         annot_kws={"size": PLT_ANNO}
+#                     )
+#                     ax.set_title("Matriz de Correlación", fontsize=PLT_TITLE)
+#                     ax.tick_params(axis="x", labelsize=PLT_LABEL-2, rotation=45)
+#                     ax.tick_params(axis="y", labelsize=PLT_LABEL-2)
+#                     center(fig)
+
+#                 # ===== Dispersión (más grande, 2 por fila) =====
+#                 pairs = [("Tmax","ET0"), ("Rs","ET0"), ("HR","ET0"), ("Ux","ET0"), ("ET0","ETc")]
+#                 pairs = [(x,y) for (x,y) in pairs if x in df.columns and y in df.columns]
+#                 if pairs:
+#                     n = len(pairs); ncols, nrows = 2, int(np.ceil(n/2))
+#                     fig, axes = plt.subplots(nrows, ncols, figsize=(14, 10))
+#                     axes = np.atleast_2d(axes).ravel()
+#                     import seaborn as sns
+#                     for i, (xv, yv) in enumerate(pairs):
+#                         ax = axes[i]
+#                         sns.scatterplot(x=xv, y=yv, data=df, ax=ax, s=18)
+#                         ax.set_title(f"{xv} vs {yv}", fontsize=PLT_TITLE)
+#                         ax.set_xlabel(xv); ax.set_ylabel(yv)
+#                     for j in range(i+1, len(axes)):
+#                         axes[j].set_visible(False)
+#                     st.pyplot(fig, use_container_width=True)
+
+#                 # ===== Regresión lineal (compacta + centrada) =====
+#                 try:
+#                     from sklearn.model_selection import train_test_split
+#                     from sklearn.linear_model import LinearRegression
+#                     from sklearn.metrics import mean_squared_error, r2_score
+#                     feats = _presentes(df, ["Tmax","Tmin","HR","Ux","Rs"])
+#                     if "ET0" in df.columns and len(feats) >= 2:
+#                         df_model = df[feats + ["ET0"]].dropna()
+#                         if len(df_model) >= 20:
+#                             X = df_model[feats]; y = df_model["ET0"]
+#                             X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+#                             model = LinearRegression().fit(X_train, y_train)
+#                             y_pred = model.predict(X_test)
+#                             r2 = r2_score(y_test, y_pred); mse = mean_squared_error(y_test, y_pred)
+
+#                             st.markdown(f"**Regresión Lineal — R²:** {r2:.3f} &nbsp;&nbsp; **MSE:** {mse:.3f}")
+
+#                             fig, ax = plt.subplots(figsize=(6, 4))
+#                             import seaborn as sns
+#                             sns.scatterplot(x=y_test, y=y_pred, ax=ax, s=18)
+#                             mn, mx = min(y_test.min(), y_pred.min()), max(y_test.max(), y_pred.max())
+#                             ax.plot([mn, mx], [mn, mx], "r--", linewidth=1)
+#                             ax.set_xlabel("ET0 Real"); ax.set_ylabel("ET0 Predicho")
+#                             ax.set_title("ET0 Real vs Predicho (Regresión Lineal)", fontsize=PLT_TITLE)
+#                             center(fig)
+#                 except Exception as e:
+#                     st.info(f"No fue posible ajustar la Regresión Lineal: {e}")
+
+#                 # ===== Random Forest (métricas grandes + importancias compactas) =====
+#                 try:
+#                     from sklearn.ensemble import RandomForestRegressor
+#                     from sklearn.model_selection import train_test_split
+#                     from sklearn.metrics import mean_squared_error, r2_score
+#                     feats = _presentes(df, ["Tmax","Tmin","HR","Ux","Rs"])
+#                     if "ET0" in df.columns and len(feats) >= 2:
+#                         dfr = df[feats + ["ET0"]].dropna()
+#                         if len(dfr) >= 50:
+#                             X = dfr[feats]; y = dfr["ET0"]
+#                             X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+#                             rf = RandomForestRegressor(n_estimators=200, random_state=42)
+#                             rf.fit(X_train, y_train)
+#                             y_pred = rf.predict(X_test)
+#                             r2_rf = r2_score(y_test, y_pred)
+#                             mse_rf = mean_squared_error(y_test, y_pred)
+#                             st.markdown(f"**Random Forest — R²:** {r2_rf:.3f} &nbsp;&nbsp; **MSE:** {mse_rf:.3f}")
+
+#                             # Importancias compactas
+#                             fig, ax = plt.subplots(figsize=(6.5, 3.8))
+#                             imp = pd.Series(rf.feature_importances_, index=X.columns).sort_values(ascending=True)
+#                             imp.plot.barh(ax=ax)
+#                             ax.set_title("Importancia de Variables (RF)", fontsize=PLT_TITLE)
+#                             ax.set_xlabel("Importancia"); ax.set_ylabel("")
+#                             st.pyplot(fig, use_container_width=True)
+#                 except Exception as e:
+#                     st.info(f"No fue posible ajustar Random Forest: {e}")
+
+#                 # ===== Método del Codo (KMeans, pequeño + centrado) =====
+#                 try:
+#                     from sklearn.cluster import KMeans
+#                     from sklearn.preprocessing import StandardScaler
+#                     import warnings; warnings.filterwarnings("ignore")
+#                     feats = _presentes(df, ["Tmax","Tmin","HR","Ux","Rs"])
+#                     X = df[feats].dropna()
+#                     if len(X) >= 50 and len(feats) >= 2:
+#                         scaler = StandardScaler(); X_scaled = scaler.fit_transform(X)
+#                         inertia = []
+#                         for k in range(2, 10):
+#                             km = KMeans(n_clusters=k, random_state=42).fit(X_scaled)
+#                             inertia.append(km.inertia_)
+#                         fig, ax = plt.subplots(figsize=(6, 4))
+#                         ax.plot(range(2, 10), inertia, marker="o", linewidth=1)
+#                         ax.set_title("Método del Codo", fontsize=PLT_TITLE)
+#                         ax.set_xlabel("k"); ax.set_ylabel("Inercia")
+#                         center(fig)
+
+#                         # Clasificación de días climáticos (scatter pequeño + centrado)
+#                         k_final = 5
+#                         km = KMeans(n_clusters=k_final, random_state=42).fit(X_scaled)
+#                         df["_Grupo_tmp_"] = km.labels_  # no pisar "Grupo" del df si ya existe
+#                         if "Tmax" in df and "Rs" in df:
+#                             import seaborn as sns
+#                             fig, ax = plt.subplots(figsize=(6.5, 4.2))
+#                             sns.scatterplot(data=df, x="Tmax", y="Rs", hue="_Grupo_tmp_", palette="Set2", s=18, ax=ax)
+#                             ax.set_title("Clasificación de días climáticos", fontsize=PLT_TITLE)
+#                             ax.set_xlabel("Tmax"); ax.set_ylabel("Rs")
+#                             # escalas amigables
+#                             ax.set_xlim(df["Tmax"].min()-1, df["Tmax"].max()+1)
+#                             rs_min = df["Rs"].min() if pd.notna(df["Rs"].min()) else 0
+#                             ax.set_ylim(max(0, rs_min-1), df["Rs"].max()+1)
+#                             center(fig)
+
+#                             # Boxplots por grupo (como el profe)
+#                             vars_box = ["Tmax","Tmin","Tmean","HR","Ux","Rs","ET0","ETc"]
+#                             presentes = [v for v in vars_box if v in df.columns]
+#                             if presentes:
+#                                 st.subheader("Distribución por Grupo (Boxplots)")
+#                                 for i in range(0, len(presentes), 2):
+#                                     cols = st.columns(2)
+#                                     for j, col in enumerate(cols):
+#                                         if i + j < len(presentes):
+#                                             var = presentes[i+j]
+#                                             with col:
+#                                                 import seaborn as sns
+#                                                 fig, ax = plt.subplots(figsize=(6.5, 4.2))
+#                                                 sns.boxplot(x="_Grupo_tmp_", y=var, data=df, ax=ax)
+#                                                 ax.set_title(f"{var} por Grupo", fontsize=PLT_TITLE)
+#                                                 ax.set_xlabel("Grupo"); ax.set_ylabel(var)
+#                                                 st.pyplot(fig, use_container_width=True)
+
+#                             # limpia columna temporal
+#                             df.drop(columns=["_Grupo_tmp_"], inplace=True, errors="ignore")
+#                 except Exception as e:
+#                     st.info(f"No fue posible ejecutar K-Means/boxplots: {e}")
+
+#     # ---------------------------
+#     # MODO: COMPARAR CICLOS
+#     # ---------------------------
+#     elif modo == "Comparar ciclos":
+#         ruta_A = CAT_UNISON[(CAT_UNISON.Region==region_sel) & (CAT_UNISON.Ciclo==ciclo_A)]["Ruta"]
+#         ruta_B = CAT_UNISON[(CAT_UNISON.Region==region_sel) & (CAT_UNISON.Ciclo==ciclo_B)]["Ruta"]
+#         if ruta_A.empty or ruta_B.empty:
+#             st.warning("No encontré ambos ciclos para mostrar resultados de modelos/estadística.")
+#         else:
+#             dfA = leer_unison(ruta_A.iloc[0]); dfB = leer_unison(ruta_B.iloc[0])
+
+#             # — A —
+#             st.markdown(f"### {region_sel} — {ciclo_A}")
+#             cols_est_A = _presentes(dfA, ["Tmax","Tmin","Tmean","HR","Ux","Rs","ET0","ETc","ETverde","ETazul","Pef"])
+#             if cols_est_A:
+#                 st.table(dfA[cols_est_A].describe(percentiles=[0.25,0.5,0.75]).T)
+#             st.markdown("<hr style='margin:0.8rem 0; border:none; border-top:1px solid #DDD;'/>",
+#                         unsafe_allow_html=True)
+
+#             # — B —
+#             st.markdown(f"### {region_sel} — {ciclo_B}")
+#             cols_est_B = _presentes(dfB, ["Tmax","Tmin","Tmean","HR","Ux","Rs","ET0","ETc","ETverde","ETazul","Pef"])
+#             if cols_est_B:
+#                 st.table(dfB[cols_est_B].describe(percentiles=[0.25,0.5,0.75]).T)
+
+#     # ---------------------------
+#     # MODO: COMPARAR REGIONES
+#     # ---------------------------
+#     elif modo == "Comparar regiones":
+#         ruta_A = CAT_UNISON[(CAT_UNISON.Region==region_A) & (CAT_UNISON.Ciclo==ciclo_sel)]["Ruta"]
+#         ruta_B = CAT_UNISON[(CAT_UNISON.Region==region_B) & (CAT_UNISON.Ciclo==ciclo_sel)]["Ruta"]
+#         if ruta_A.empty or ruta_B.empty:
+#             st.warning("No encontré ambas regiones para mostrar resultados de modelos/estadística.")
+#         else:
+#             dfA = leer_unison(ruta_A.iloc[0]); dfB = leer_unison(ruta_B.iloc[0])
+
+#             # — A —
+#             st.markdown(f"### {region_A} — {ciclo_sel}")
+#             cols_est_A = _presentes(dfA, ["Tmax","Tmin","Tmean","HR","Ux","Rs","ET0","ETc","ETverde","ETazul","Pef"])
+#             if cols_est_A:
+#                 st.table(dfA[cols_est_A].describe(percentiles=[0.25,0.5,0.75]).T)
+#             st.markdown("<hr style='margin:0.8rem 0; border:none; border-top:1px solid #DDD;'/>",
+#                         unsafe_allow_html=True)
+
+#             # — B —
+#             st.markdown(f"### {region_B} — {ciclo_sel}")
+#             cols_est_B = _presentes(dfB, ["Tmax","Tmin","Tmean","HR","Ux","Rs","ET0","ETc","ETverde","ETazul","Pef"])
+#             if cols_est_B:
+#                 st.table(dfB[cols_est_B].describe(percentiles=[0.25,0.5,0.75]).T)
+
 with tab_modelos:
+    # ===========================
+    # Modelos y Estadística — TODO en un solo lugar
+    # ===========================
+    import warnings
+    warnings.filterwarnings("ignore")
+
+    # Imports locales para no romper si falta algo en el entorno
+    try:
+        from sklearn.model_selection import train_test_split
+        from sklearn.linear_model import LinearRegression
+        from sklearn.metrics import r2_score, mean_squared_error
+        from sklearn.preprocessing import StandardScaler
+        from sklearn.cluster import KMeans
+        from sklearn.ensemble import RandomForestRegressor
+        import plotly.express as px
+    except Exception as _e:
+        st.error("Faltan dependencias de scikit-learn o plotly. Verifica tu requirements.txt")
+        st.stop()
+
     st.subheader("Modelos y Estadística")
 
-    # ---------------------------
-    # util: columna(s) presentes rápido
-    # ---------------------------
-    def _presentes(df, cols):
-        return [c for c in cols if c in df.columns]
+    def hr():
+        st.markdown("<hr style='margin:0.6rem 0; border:none; border-top:1px solid #DDD;'/>", unsafe_allow_html=True)
 
-    # ---------------------------
-    # MODO: CICLO INDIVIDUAL
-    # ---------------------------
+    # ---------- Helper: Render de TODO para un DF ----------
+    def render_modelos_para(df_in: pd.DataFrame, titulo: str):
+        if df_in is None or df_in.empty:
+            st.warning(f"No hay datos para **{titulo}**.")
+            return
+
+        st.markdown(f"### {titulo}")
+
+        # ---------------------------
+        # Estadística descriptiva
+        # ---------------------------
+        hr()
+        st.markdown("#### Estadística descriptiva")
+        cols_est = [c for c in ["Tmax","Tmin","Tmean","HR","Ux","Rs","ET0","ETc","ETverde","ETazul","Pef"] if c in df_in.columns]
+        if cols_est:
+            desc = df_in[cols_est].describe(percentiles=[0.25,0.5,0.75]).T
+            st.dataframe(desc, use_container_width=True)
+        else:
+            st.info("No hay columnas numéricas esperadas para la estadística descriptiva.")
+
+        # ---------------------------
+        # Matriz de correlación (compacta)
+        # ---------------------------
+        if cols_est:
+            hr()
+            st.markdown("#### Matriz de correlación")
+            fig_corr, ax = plt.subplots(figsize=(6.5, 5.2))  # compacta
+            corr = df_in[cols_est].dropna().corr()
+            im = ax.imshow(corr, aspect="auto")
+            ax.set_xticks(range(len(corr.columns)))
+            ax.set_yticks(range(len(corr.columns)))
+            ax.set_xticklabels(corr.columns, rotation=45, ha="right")
+            ax.set_yticklabels(corr.columns)
+            for (i, j), v in np.ndenumerate(corr.values):
+                ax.text(j, i, f"{v:.2f}", ha="center", va="center", fontsize=8)
+            ax.set_title("Correlación", fontsize=12)
+            fig_corr.colorbar(im, ax=ax, fraction=0.046, pad=0.04)
+            fig_corr.tight_layout()
+            st.pyplot(fig_corr, use_container_width=False)
+
+        # ---------------------------
+        # Dispersión de variables (2 por fila, más grande)
+        # ---------------------------
+        pares = []
+        if all(c in df_in.columns for c in ["Tmax","ET0"]): pares.append(("Tmax","ET0"))
+        if all(c in df_in.columns for c in ["Rs","ET0"]):   pares.append(("Rs","ET0"))
+        if all(c in df_in.columns for c in ["HR","ET0"]):   pares.append(("HR","ET0"))
+        if all(c in df_in.columns for c in ["Ux","ET0"]):   pares.append(("Ux","ET0"))
+        if all(c in df_in.columns for c in ["ET0","ETc"]):  pares.append(("ET0","ETc"))
+
+        if pares:
+            hr()
+            st.markdown("#### Dispersión de variables")
+            # render en filas de 2
+            for i in range(0, len(pares), 2):
+                cols_row = st.columns(2)
+                for j in range(2):
+                    if i + j >= len(pares): break
+                    x, y = pares[i+j]
+                    with cols_row[j]:
+                        fig_sc, ax_sc = plt.subplots(figsize=(6.5, 4.2))
+                        ax_sc.scatter(df_in[x], df_in[y], s=10, alpha=0.7)
+                        ax_sc.set_xlabel(x); ax_sc.set_ylabel(y)
+                        ax_sc.set_title(f"{x} vs {y}", fontsize=12)
+                        fig_sc.tight_layout()
+                        st.pyplot(fig_sc, use_container_width=True)
+
+        # ---------------------------
+        # Regresión lineal (compacta y centrada)
+        # ---------------------------
+        if all(c in df_in.columns for c in ["Tmax","Tmin","HR","Ux","Rs","ET0"]):
+            hr()
+            st.markdown("#### Regresión lineal (ET0 ~ Tmax + Tmin + HR + Ux + Rs)")
+            dfm = df_in[["Tmax","Tmin","HR","Ux","Rs","ET0"]].dropna()
+            if len(dfm) > 20:
+                X = dfm[["Tmax","Tmin","HR","Ux","Rs"]]; y = dfm["ET0"]
+                X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+                lm = LinearRegression().fit(X_train, y_train)
+                y_pred = lm.predict(X_test)
+                r2 = r2_score(y_test, y_pred); mse = mean_squared_error(y_test, y_pred)
+
+                st.caption(f"R² = **{r2:.4f}**, MSE = **{mse:.4f}**")
+                fig_rl, ax_rl = plt.subplots(figsize=(6.5, 5.2))
+                ax_rl.scatter(y_test, y_pred, s=12, alpha=0.8)
+                lims = [min(y_test.min(), y_pred.min()), max(y_test.max(), y_pred.max())]
+                ax_rl.plot(lims, lims, "r--", lw=1)
+                ax_rl.set_xlabel("ET0 real"); ax_rl.set_ylabel("ET0 predicho")
+                ax_rl.set_title("Real vs Predicho (Lineal)", fontsize=12)
+                fig_rl.tight_layout(); st.pyplot(fig_rl, use_container_width=False)
+
+        # ---------------------------
+        # Random Forest (métrica y variables)
+        # ---------------------------
+        if all(c in df_in.columns for c in ["Tmax","Tmin","HR","Ux","Rs","ET0"]):
+            hr()
+            st.markdown("#### Random Forest — ET0")
+            dfm = df_in[["Tmax","Tmin","HR","Ux","Rs","ET0"]].dropna()
+            if len(dfm) > 20:
+                X = dfm[["Tmax","Tmin","HR","Ux","Rs"]]; y = dfm["ET0"]
+                X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+                rf = RandomForestRegressor(n_estimators=200, random_state=42).fit(X_train, y_train)
+                y_pred = rf.predict(X_test)
+                r2 = r2_score(y_test, y_pred); mse = mean_squared_error(y_test, y_pred)
+
+                # Métricas con texto más grande
+                st.markdown(f"**R²:** {r2:.4f} &nbsp;&nbsp; **MSE:** {mse:.4f}")
+
+                # Importancia de variables (tamaño como método del codo)
+                fig_imp, ax_imp = plt.subplots(figsize=(6.5, 4.8))
+                imps = pd.Series(rf.feature_importances_, index=X.columns).sort_values(ascending=True)
+                ax_imp.barh(imps.index, imps.values)
+                ax_imp.set_title("Importancia de variables", fontsize=12)
+                fig_imp.tight_layout(); st.pyplot(fig_imp, use_container_width=False)
+
+        # ---------------------------
+        # K-Means (Meteo + ET0/ETc) — Clasificación de días climáticos
+        # ---------------------------
+        vars_km = [c for c in ["Tmax","Tmin","HR","Ux","Rs","ET0","ETc"] if c in df_in.columns]
+        if len(vars_km) >= 3:
+            hr()
+            st.markdown("#### Clustering (KMeans) — Clasificación de días climáticos")
+
+            dkm = df_in[vars_km].dropna().copy()
+            if len(dkm) >= 20:
+                scaler = StandardScaler()
+                Xs = scaler.fit_transform(dkm.values)
+
+                # Método del codo (misma escala que importancia)
+                inertias = []
+                ks = list(range(2, 9))
+                for k in ks:
+                    km = KMeans(n_clusters=k, random_state=42, n_init=10)
+                    km.fit(Xs); inertias.append(km.inertia_)
+                fig_elb, ax_elb = plt.subplots(figsize=(6.5, 4.8))
+                ax_elb.plot(ks, inertias, marker="o")
+                ax_elb.set_xlabel("k"); ax_elb.set_ylabel("Inercia")
+                ax_elb.set_title("Método del codo", fontsize=12)
+                fig_elb.tight_layout(); st.pyplot(fig_elb, use_container_width=False)
+
+                # K final = 5 (como el profe)
+                k_final = 5
+                km = KMeans(n_clusters=k_final, random_state=42, n_init=10)
+                labels = km.fit_predict(Xs)
+                dkm = dkm.copy()
+                dkm["Clima Grupo"] = labels
+
+                # Scatter Tmax vs Rs coloreado por grupo (mismo estilo)
+                if all(c in dkm.columns for c in ["Tmax","Rs","Clima Grupo"]):
+                    fig_cls, ax_cls = plt.subplots(figsize=(7.2, 5.2))
+                    for g in sorted(dkm["Clima Grupo"].unique()):
+                        sel = dkm["Clima Grupo"] == g
+                        ax_cls.scatter(dkm.loc[sel, "Tmax"], dkm.loc[sel, "Rs"], s=10, alpha=0.8, label=f"G{g}")
+                    ax_cls.set_xlabel("Tmax"); ax_cls.set_ylabel("Rs")
+                    ax_cls.set_title("Clasificación de días climáticos", fontsize=13)
+                    ax_cls.legend(title="Clima Grupo", ncols=3, fontsize=9)
+                    fig_cls.tight_layout(); st.pyplot(fig_cls, use_container_width=False)
+
+                # ---------------------------
+                # Distribución temporal por grupo (DOY/Día)
+                # ---------------------------
+                dia_col = None
+                for cand in ["DOY","Dia","Día","Dia_ciclo"]:
+                    if cand in df_in.columns and df_in[cand].notna().any():
+                        dia_col = cand; break
+                if dia_col is not None:
+                    hr()
+                    st.markdown("#### Distribución temporal por grupo")
+                    plot_df = df_in[[dia_col]].copy()
+                    plot_df = plot_df.loc[plot_df.index.intersection(dkm.index)].copy()
+                    plot_df["Clima Grupo"] = dkm["Clima Grupo"]
+                    fig_time, ax_time = plt.subplots(figsize=(8.5, 4.8))
+                    for g in sorted(plot_df["Clima Grupo"].unique()):
+                        sel = plot_df["Clima Grupo"] == g
+                        ax_time.scatter(plot_df.loc[sel, dia_col], [g]*sel.sum(), s=10, alpha=0.8, label=f"G{g}")
+                    ax_time.set_xlabel(dia_col); ax_time.set_ylabel("Grupo")
+                    ax_time.set_title("Días por grupo", fontsize=12)
+                    ax_time.legend(ncols=3, fontsize=9)
+                    fig_time.tight_layout(); st.pyplot(fig_time, use_container_width=True)
+
+                    # Rangos consecutivos por grupo (tabla en expander)
+                    with st.expander("Rangos de días consecutivos por grupo"):
+                        filas = []
+                        for g in sorted(plot_df["Clima Grupo"].unique()):
+                            dias = np.sort(plot_df.loc[plot_df["Clima Grupo"]==g, dia_col].dropna().astype(int).unique())
+                            if len(dias)==0: continue
+                            inicio = dias[0]
+                            for i in range(1, len(dias)):
+                                if dias[i] != dias[i-1] + 1:
+                                    fin = dias[i-1]
+                                    filas.append({"Grupo": g, "Inicio": inicio, "Fin": fin, "Duración": (fin-inicio)+1})
+                                    inicio = dias[i]
+                            fin = dias[-1]
+                            filas.append({"Grupo": g, "Inicio": inicio, "Fin": fin, "Duración": (fin-inicio)+1})
+                        if filas:
+                            st.dataframe(pd.DataFrame(filas), use_container_width=True)
+                        else:
+                            st.info("No fue posible calcular rangos consecutivos.")
+
+                # ---------------------------
+                # Boxplots por década y grupo (Plotly) — selector de variable
+                # ---------------------------
+                if "decada" in df_in.columns:
+                    hr()
+                    st.markdown("#### Boxplots por década y grupo")
+                    vars_box = [c for c in ["Tmax","Tmin","Tmean","HR","Ux","Rs","ET0","ETc"] if c in dkm.columns or c in df_in.columns]
+                    if vars_box:
+                        var_sel = st.selectbox(f"Variable (en {titulo})", vars_box, key=f"box_dec_{titulo}")
+                        # unir década + grupo
+                        join_df = df_in[[var_sel, "decada"]].dropna().copy()
+                        join_df = join_df.loc[join_df.index.intersection(dkm.index)]
+                        if "Clima Grupo" in dkm:
+                            join_df = join_df.join(dkm["Clima Grupo"])
+                            fig_box = px.box(
+                                join_df, x="decada", y=var_sel, color="Clima Grupo",
+                                title=f"{var_sel} por grupo y década",
+                                labels={"decada":"Década", var_sel:var_sel, "Clima Grupo":"Grupo"},
+                                color_discrete_sequence=px.colors.qualitative.Set2,
+                                points="all"
+                            )
+                            st.plotly_chart(fig_box, use_container_width=True)
+
+                # ---------------------------
+                # Boxplots por grupo (Seaborn) 2x3 — cluster ET0/ETc
+                # ---------------------------
+                hr()
+                st.markdown("#### Boxplots por grupo (cluster ET0/ETc)")
+                vars_bg = [c for c in ["Tmax","Tmin","HR","Ux","Rs","ET0","ETc"] if c in dkm.columns or c in df_in.columns]
+                if vars_bg:
+                    # construir df para box: variable + grupo
+                    base_df = df_in[vars_bg].dropna().loc[dkm.index].copy()
+                    base_df["Clima Grupo"] = dkm["Clima Grupo"]
+                    n = min(len(vars_bg), 6)  # 2x3 máximo
+                    grid = vars_bg[:n]
+                    fig_bx, axes = plt.subplots(2, 3, figsize=(12, 7.6))
+                    axes = axes.ravel()
+                    for i, var in enumerate(grid):
+                        axb = axes[i]
+                        # Boxplot manual por categorías
+                        data_list = [base_df.loc[base_df["Clima Grupo"]==g, var].values for g in sorted(base_df["Clima Grupo"].unique())]
+                        axb.boxplot(data_list, labels=[f"G{g}" for g in sorted(base_df["Clima Grupo"].unique())])
+                        axb.set_title(f"{var} por grupo", fontsize=11)
+                        axb.set_xlabel("Grupo"); axb.set_ylabel(var)
+                    for j in range(i+1, len(axes)):
+                        axes[j].set_visible(False)
+                    fig_bx.tight_layout(); st.pyplot(fig_bx, use_container_width=True)
+
+        # ---------------------------
+        # FIN render_modelos_para
+        # ---------------------------
+
+    # ===========================
+    # Enrutar por modo seleccionado
+    # ===========================
     if modo == "Ciclo individual":
         ruta_sel = CAT_UNISON[(CAT_UNISON.Region==region_sel) & (CAT_UNISON.Ciclo==ciclo_sel)]["Ruta"]
         if ruta_sel.empty:
             st.warning(f"No encontré CSV para {region_sel} / {ciclo_sel}")
         else:
             df = leer_unison(ruta_sel.iloc[0])
-            if df.empty:
-                st.warning("No fue posible leer el archivo seleccionado.")
-            else:
-                st.markdown(f"**{region_sel} — {ciclo_sel}**")
+            render_modelos_para(df, f"{region_sel} — {ciclo_sel}")
 
-                # ===== Estadística descriptiva (TABLA COMPLETA, sin scroll) =====
-                cols_est = _presentes(df, ["Tmax","Tmin","Tmean","HR","Ux","Rs","ET0","ETc","ETverde","ETazul","Pef"])
-                if cols_est:
-                    desc = df[cols_est].describe(percentiles=[0.25,0.5,0.75]).T
-                    st.table(desc)  # tabla estática, sin scroll
-                else:
-                    st.info("No encontré columnas numéricas esperadas para estadística descriptiva.")
-
-                st.markdown("<hr style='margin:0.8rem 0; border:none; border-top:1px solid #DDD;'/>",
-                            unsafe_allow_html=True)
-
-                # ===== Correlación (más pequeña y centrada) =====
-                df_corr = df[cols_est].dropna()
-                if not df_corr.empty:
-                    import seaborn as sns
-                    corr_matrix = df_corr.corr()
-                    fig, ax = plt.subplots(figsize=(6, 4))
-                    mask = np.triu(np.ones_like(corr_matrix, dtype=bool))
-                    sns.heatmap(
-                        corr_matrix, ax=ax,
-                        annot=True, fmt=".2f", cmap="viridis", square=True, mask=mask,
-                        annot_kws={"size": PLT_ANNO}
-                    )
-                    ax.set_title("Matriz de Correlación", fontsize=PLT_TITLE)
-                    ax.tick_params(axis="x", labelsize=PLT_LABEL-2, rotation=45)
-                    ax.tick_params(axis="y", labelsize=PLT_LABEL-2)
-                    center(fig)
-
-                # ===== Dispersión (más grande, 2 por fila) =====
-                pairs = [("Tmax","ET0"), ("Rs","ET0"), ("HR","ET0"), ("Ux","ET0"), ("ET0","ETc")]
-                pairs = [(x,y) for (x,y) in pairs if x in df.columns and y in df.columns]
-                if pairs:
-                    n = len(pairs); ncols, nrows = 2, int(np.ceil(n/2))
-                    fig, axes = plt.subplots(nrows, ncols, figsize=(14, 10))
-                    axes = np.atleast_2d(axes).ravel()
-                    import seaborn as sns
-                    for i, (xv, yv) in enumerate(pairs):
-                        ax = axes[i]
-                        sns.scatterplot(x=xv, y=yv, data=df, ax=ax, s=18)
-                        ax.set_title(f"{xv} vs {yv}", fontsize=PLT_TITLE)
-                        ax.set_xlabel(xv); ax.set_ylabel(yv)
-                    for j in range(i+1, len(axes)):
-                        axes[j].set_visible(False)
-                    st.pyplot(fig, use_container_width=True)
-
-                # ===== Regresión lineal (compacta + centrada) =====
-                try:
-                    from sklearn.model_selection import train_test_split
-                    from sklearn.linear_model import LinearRegression
-                    from sklearn.metrics import mean_squared_error, r2_score
-                    feats = _presentes(df, ["Tmax","Tmin","HR","Ux","Rs"])
-                    if "ET0" in df.columns and len(feats) >= 2:
-                        df_model = df[feats + ["ET0"]].dropna()
-                        if len(df_model) >= 20:
-                            X = df_model[feats]; y = df_model["ET0"]
-                            X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
-                            model = LinearRegression().fit(X_train, y_train)
-                            y_pred = model.predict(X_test)
-                            r2 = r2_score(y_test, y_pred); mse = mean_squared_error(y_test, y_pred)
-
-                            st.markdown(f"**Regresión Lineal — R²:** {r2:.3f} &nbsp;&nbsp; **MSE:** {mse:.3f}")
-
-                            fig, ax = plt.subplots(figsize=(6, 4))
-                            import seaborn as sns
-                            sns.scatterplot(x=y_test, y=y_pred, ax=ax, s=18)
-                            mn, mx = min(y_test.min(), y_pred.min()), max(y_test.max(), y_pred.max())
-                            ax.plot([mn, mx], [mn, mx], "r--", linewidth=1)
-                            ax.set_xlabel("ET0 Real"); ax.set_ylabel("ET0 Predicho")
-                            ax.set_title("ET0 Real vs Predicho (Regresión Lineal)", fontsize=PLT_TITLE)
-                            center(fig)
-                except Exception as e:
-                    st.info(f"No fue posible ajustar la Regresión Lineal: {e}")
-
-                # ===== Random Forest (métricas grandes + importancias compactas) =====
-                try:
-                    from sklearn.ensemble import RandomForestRegressor
-                    from sklearn.model_selection import train_test_split
-                    from sklearn.metrics import mean_squared_error, r2_score
-                    feats = _presentes(df, ["Tmax","Tmin","HR","Ux","Rs"])
-                    if "ET0" in df.columns and len(feats) >= 2:
-                        dfr = df[feats + ["ET0"]].dropna()
-                        if len(dfr) >= 50:
-                            X = dfr[feats]; y = dfr["ET0"]
-                            X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
-                            rf = RandomForestRegressor(n_estimators=200, random_state=42)
-                            rf.fit(X_train, y_train)
-                            y_pred = rf.predict(X_test)
-                            r2_rf = r2_score(y_test, y_pred)
-                            mse_rf = mean_squared_error(y_test, y_pred)
-                            st.markdown(f"**Random Forest — R²:** {r2_rf:.3f} &nbsp;&nbsp; **MSE:** {mse_rf:.3f}")
-
-                            # Importancias compactas
-                            fig, ax = plt.subplots(figsize=(6.5, 3.8))
-                            imp = pd.Series(rf.feature_importances_, index=X.columns).sort_values(ascending=True)
-                            imp.plot.barh(ax=ax)
-                            ax.set_title("Importancia de Variables (RF)", fontsize=PLT_TITLE)
-                            ax.set_xlabel("Importancia"); ax.set_ylabel("")
-                            st.pyplot(fig, use_container_width=True)
-                except Exception as e:
-                    st.info(f"No fue posible ajustar Random Forest: {e}")
-
-                # ===== Método del Codo (KMeans, pequeño + centrado) =====
-                try:
-                    from sklearn.cluster import KMeans
-                    from sklearn.preprocessing import StandardScaler
-                    import warnings; warnings.filterwarnings("ignore")
-                    feats = _presentes(df, ["Tmax","Tmin","HR","Ux","Rs"])
-                    X = df[feats].dropna()
-                    if len(X) >= 50 and len(feats) >= 2:
-                        scaler = StandardScaler(); X_scaled = scaler.fit_transform(X)
-                        inertia = []
-                        for k in range(2, 10):
-                            km = KMeans(n_clusters=k, random_state=42).fit(X_scaled)
-                            inertia.append(km.inertia_)
-                        fig, ax = plt.subplots(figsize=(6, 4))
-                        ax.plot(range(2, 10), inertia, marker="o", linewidth=1)
-                        ax.set_title("Método del Codo", fontsize=PLT_TITLE)
-                        ax.set_xlabel("k"); ax.set_ylabel("Inercia")
-                        center(fig)
-
-                        # Clasificación de días climáticos (scatter pequeño + centrado)
-                        k_final = 5
-                        km = KMeans(n_clusters=k_final, random_state=42).fit(X_scaled)
-                        df["_Grupo_tmp_"] = km.labels_  # no pisar "Grupo" del df si ya existe
-                        if "Tmax" in df and "Rs" in df:
-                            import seaborn as sns
-                            fig, ax = plt.subplots(figsize=(6.5, 4.2))
-                            sns.scatterplot(data=df, x="Tmax", y="Rs", hue="_Grupo_tmp_", palette="Set2", s=18, ax=ax)
-                            ax.set_title("Clasificación de días climáticos", fontsize=PLT_TITLE)
-                            ax.set_xlabel("Tmax"); ax.set_ylabel("Rs")
-                            # escalas amigables
-                            ax.set_xlim(df["Tmax"].min()-1, df["Tmax"].max()+1)
-                            rs_min = df["Rs"].min() if pd.notna(df["Rs"].min()) else 0
-                            ax.set_ylim(max(0, rs_min-1), df["Rs"].max()+1)
-                            center(fig)
-
-                            # Boxplots por grupo (como el profe)
-                            vars_box = ["Tmax","Tmin","Tmean","HR","Ux","Rs","ET0","ETc"]
-                            presentes = [v for v in vars_box if v in df.columns]
-                            if presentes:
-                                st.subheader("Distribución por Grupo (Boxplots)")
-                                for i in range(0, len(presentes), 2):
-                                    cols = st.columns(2)
-                                    for j, col in enumerate(cols):
-                                        if i + j < len(presentes):
-                                            var = presentes[i+j]
-                                            with col:
-                                                import seaborn as sns
-                                                fig, ax = plt.subplots(figsize=(6.5, 4.2))
-                                                sns.boxplot(x="_Grupo_tmp_", y=var, data=df, ax=ax)
-                                                ax.set_title(f"{var} por Grupo", fontsize=PLT_TITLE)
-                                                ax.set_xlabel("Grupo"); ax.set_ylabel(var)
-                                                st.pyplot(fig, use_container_width=True)
-
-                            # limpia columna temporal
-                            df.drop(columns=["_Grupo_tmp_"], inplace=True, errors="ignore")
-                except Exception as e:
-                    st.info(f"No fue posible ejecutar K-Means/boxplots: {e}")
-
-    # ---------------------------
-    # MODO: COMPARAR CICLOS
-    # ---------------------------
     elif modo == "Comparar ciclos":
         ruta_A = CAT_UNISON[(CAT_UNISON.Region==region_sel) & (CAT_UNISON.Ciclo==ciclo_A)]["Ruta"]
         ruta_B = CAT_UNISON[(CAT_UNISON.Region==region_sel) & (CAT_UNISON.Ciclo==ciclo_B)]["Ruta"]
         if ruta_A.empty or ruta_B.empty:
-            st.warning("No encontré ambos ciclos para mostrar resultados de modelos/estadística.")
+            st.warning("No encontré ambos ciclos para mostrar modelos.")
         else:
             dfA = leer_unison(ruta_A.iloc[0]); dfB = leer_unison(ruta_B.iloc[0])
+            render_modelos_para(dfA, f"{region_sel} — {ciclo_A}")
+            hr()
+            render_modelos_para(dfB, f"{region_sel} — {ciclo_B}")
 
-            # — A —
-            st.markdown(f"### {region_sel} — {ciclo_A}")
-            cols_est_A = _presentes(dfA, ["Tmax","Tmin","Tmean","HR","Ux","Rs","ET0","ETc","ETverde","ETazul","Pef"])
-            if cols_est_A:
-                st.table(dfA[cols_est_A].describe(percentiles=[0.25,0.5,0.75]).T)
-            st.markdown("<hr style='margin:0.8rem 0; border:none; border-top:1px solid #DDD;'/>",
-                        unsafe_allow_html=True)
-
-            # — B —
-            st.markdown(f"### {region_sel} — {ciclo_B}")
-            cols_est_B = _presentes(dfB, ["Tmax","Tmin","Tmean","HR","Ux","Rs","ET0","ETc","ETverde","ETazul","Pef"])
-            if cols_est_B:
-                st.table(dfB[cols_est_B].describe(percentiles=[0.25,0.5,0.75]).T)
-
-    # ---------------------------
-    # MODO: COMPARAR REGIONES
-    # ---------------------------
     elif modo == "Comparar regiones":
         ruta_A = CAT_UNISON[(CAT_UNISON.Region==region_A) & (CAT_UNISON.Ciclo==ciclo_sel)]["Ruta"]
         ruta_B = CAT_UNISON[(CAT_UNISON.Region==region_B) & (CAT_UNISON.Ciclo==ciclo_sel)]["Ruta"]
         if ruta_A.empty or ruta_B.empty:
-            st.warning("No encontré ambas regiones para mostrar resultados de modelos/estadística.")
+            st.warning("No encontré ambas regiones para mostrar modelos.")
         else:
             dfA = leer_unison(ruta_A.iloc[0]); dfB = leer_unison(ruta_B.iloc[0])
-
-            # — A —
-            st.markdown(f"### {region_A} — {ciclo_sel}")
-            cols_est_A = _presentes(dfA, ["Tmax","Tmin","Tmean","HR","Ux","Rs","ET0","ETc","ETverde","ETazul","Pef"])
-            if cols_est_A:
-                st.table(dfA[cols_est_A].describe(percentiles=[0.25,0.5,0.75]).T)
-            st.markdown("<hr style='margin:0.8rem 0; border:none; border-top:1px solid #DDD;'/>",
-                        unsafe_allow_html=True)
-
-            # — B —
-            st.markdown(f"### {region_B} — {ciclo_sel}")
-            cols_est_B = _presentes(dfB, ["Tmax","Tmin","Tmean","HR","Ux","Rs","ET0","ETc","ETverde","ETazul","Pef"])
-            if cols_est_B:
-                st.table(dfB[cols_est_B].describe(percentiles=[0.25,0.5,0.75]).T)
+            render_modelos_para(dfA, f"{region_A} — {ciclo_sel}")
+            hr()
+            render_modelos_para(dfB, f"{region_B} — {ciclo_sel}")

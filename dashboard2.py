@@ -1526,10 +1526,19 @@ with tab_modelos:
                 # Gráfica temporal compacta
                 fig_time, ax_time = plt.subplots(figsize=(6.0, 4.2))
                 import seaborn as sns
-                sns.scatterplot(data=df_time, x=x_time_col, y="Grupo", hue="Grupo", palette="Set2", ax=ax_time, s=18)
-                ax_time.set_xlabel(x_time_col)
-                ax_time.set_ylabel("Grupo")
-                ax_time.set_title("Días por grupo (eje temporal correcto)", fontsize=_TITLE)
+                
+                # sns.scatterplot(data=df_time, x=x_time_col, y="Grupo", hue="Grupo", palette="Set2", ax=ax_time, s=18)
+                # ax_time.set_xlabel(x_time_col)
+                # ax_time.set_ylabel("Grupo")
+                # ax_time.set_title("Días por grupo", fontsize=_TITLE)
+                
+                # ✅ Ticks Y solo enteros (0..k-1), sin fracciones
+                gvals = np.sort(df_time["Grupo"].unique())
+                ax_time.set_yticks(gvals)
+                ax_time.set_ylim(gvals.min() - 0.5, gvals.max() + 0.5)
+                
+                
+                
                 # Si es Fecha y abarca 2 años, matplotlib maneja bien el tiempo — no hay “salto raro” del DOY
                 center(fig_time)
             else:
@@ -1537,11 +1546,16 @@ with tab_modelos:
                 df_time = pd.DataFrame({"idx": Xmet.index})
                 df_time["Grupo"] = grupos_meteo.values
                 fig_time, ax_time = plt.subplots(figsize=(6.0, 4.2))
-                import seaborn as sns
+                
                 sns.scatterplot(data=df_time, x="idx", y="Grupo", hue="Grupo", palette="Set2", ax=ax_time, s=18)
                 ax_time.set_xlabel("Índice")
                 ax_time.set_ylabel("Grupo")
                 ax_time.set_title("Días por grupo (sin columna temporal)", fontsize=_TITLE)
+                
+                gvals = np.sort(df_time["Grupo"].unique())
+                ax_time.set_yticks(gvals)
+                ax_time.set_ylim(gvals.min() - 0.5, gvals.max() + 0.5)
+                
                 center(fig_time)
 
             # 6.6) (Opcional) Boxplots por década y grupo (solo meteo)

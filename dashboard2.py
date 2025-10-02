@@ -1398,7 +1398,6 @@ with tab_modelos:
                 )
 
  
- 
         # feats_rf = _presentes(df_in, ["Tmax","Tmin","HR","Ux","Rs"])
         # if "ET0" in df_in.columns and len(feats_rf) >= 2:
         #     dfr = df_in[feats_rf + ["ET0"]].dropna()
@@ -1418,6 +1417,8 @@ with tab_modelos:
         #         ax_imp.set_xlabel("Importancia"); ax_imp.set_ylabel("")
         #         center(f_imp)
 
+       
+       
         # ---------------------------
         # 6) KMeans SOLO meteorología (como el profe)
         #    - Método del codo (k=2..9)
@@ -1426,95 +1427,206 @@ with tab_modelos:
         #    - Distribución de días por grupo (scatter Día vs Grupo)
         #    - Boxplots por década y grupo — versión Seaborn (igual al profe) y también Plotly (para comparar)
         # ---------------------------
+        
+        # ---------------------------
+        # 6) Agrupamiento por K-medias (5 grupos) — Solo meteorología
+        #    - Método del codo (k=2..9)
+        #    - k=5 => Grupo
+        #    - Scatter Tmax vs Rs (Set2) — compacto y centrado
+        #    - Resumen de tamaños por grupo (tabla)
+        #    - Distribución temporal por grupo (X = Fecha si existe; si no, Dia_ciclo; si no, DOY)
+        # ---------------------------
+        _hr()
+        st.markdown("#### Agrupamiento por K-medias (5 grupos)")
+
         meteo_cols = _presentes(df_in, ["Tmax","Tmin","HR","Ux","Rs"])
         Xmet = df_in[meteo_cols].dropna() if meteo_cols else pd.DataFrame()
         grupos_meteo = None
-        if not Xmet.empty and Xmet.shape[1] >= 2:
-            _hr()
-            st.markdown("#### Clustering (KMeans) — Solo meteorología")
 
+        if not Xmet.empty and Xmet.shape[1] >= 2:
+            from sklearn.preprocessing import StandardScaler
             scaler = StandardScaler()
             Xs = scaler.fit_transform(Xmet)
 
-            # Método del codo
+            # 6.1) Método del codo (compacto + centrado)
             inertias, ks = [], list(range(2, 10))
             for k_ in ks:
                 km = KMeans(n_clusters=k_, random_state=42, n_init=10).fit(Xs)
                 inertias.append(km.inertia_)
-            f_elb, ax_elb = plt.subplots(figsize=(6.0, 4.2))  # compacta + centrada
+            f_elb, ax_elb = plt.subplots(figsize=(6.0, 4.2))
             ax_elb.plot(ks, inertias, marker="o")
             ax_elb.set_xlabel("k"); ax_elb.set_ylabel("Inercia")
             ax_elb.set_title("Método del codo", fontsize=_TITLE)
             center(f_elb)
 
-            # k=5
+            # 6.2) Ajuste final k=5
             k_final = 5
             km = KMeans(n_clusters=k_final, random_state=42, n_init=10).fit(Xs)
             grupos_meteo = pd.Series(km.labels_, index=Xmet.index, name="Grupo")
 
-            # Scatter Tmax vs Rs (Set2) — COMPACTA Y CENTRADA
+            # 6.3) Dispersión Tmax vs Rs (Set2) — COMPACTA Y CENTRADA
             if "Tmax" in df_in.columns and "Rs" in df_in.columns:
                 import seaborn as sns
                 fig_sc, ax_sc = plt.subplots(figsize=(6.0, 4.2))
                 tmp = df_in.loc[Xmet.index, ["Tmax","Rs"]].copy()
                 tmp["Grupo"] = grupos_meteo
                 sns.scatterplot(data=tmp, x="Tmax", y="Rs", hue="Grupo", palette="Set2", ax=ax_sc)
-                ax_sc.set_title("Clasificación de días climáticos — (Solo meteo)", fontsize=_TITLE)
+                ax_sc.set_title("Clasificación de días climáticos (solo meteo)", fontsize=_TITLE)
                 center(fig_sc)
 
-            # Distribución de días por grupo (Día vs Grupo)
-            dia_col = None
-            for cand in ["Día","Dia","DOY","Dia_ciclo"]:
-                if cand in df_in.columns and df_in[cand].notna().any():
-                    dia_col = cand; break
-            if dia_col is not None:
-                df_days = df_in[[dia_col]].copy().loc[Xmet.index]
-                df_days["Grupo"] = grupos_meteo
-                fig_dg, ax_dg = plt.subplots(figsize=(10, 5))
-                import seaborn as sns
-                sns.scatterplot(data=df_days, x=dia_col, y="Grupo", hue="Grupo", palette="Set2", ax=ax_dg)
-                ax_dg.set_title("Distribución de días por grupo — (Solo meteo)", fontsize=_TITLE)
-                st.pyplot(fig_dg, use_container_width=True)
+            # 6.4) Resumen de tamaños por grupo (tabla compacta)
+            counts = grupos_meteo.value_counts().sort_index()
+            df_resumen = pd.DataFrame({"Grupo": counts.index, "Elementos": counts.values})
+            st.table(df_resumen)
 
-            # ===== Versión SEABORN (como el profe): Boxplots por década y grupo =====
-            if "decada" in df_in.columns and grupos_meteo is not None:
-                st.markdown("**Distribución por década y grupo (Solo meteo) — Versión Seaborn**")
+            # 6.5) Distribución temporal por grupo (X = Fecha si existe)
+            # Elegir la mejor columna temporal: Fecha > Dia_ciclo > DOY > index
+            if "Fecha" in df_in.columns and df_in["Fecha"].notna().any():
+                x_time_col = "Fecha"
+            elif "Dia_ciclo" in df_in.columns and df_in["Dia_ciclo"].notna().any():
+                x_time_col = "Dia_ciclo"
+            elif "DOY" in df_in.columns and df_in["DOY"].notna().any():
+                x_time_col = "DOY"
+            else:
+                x_time_col = None  # usaremos el índice
+
+            # Construir df para el scatter temporal
+            if x_time_col is not None:
+                df_time = df_in.loc[Xmet.index, [x_time_col]].copy().dropna()
+                df_time["Grupo"] = grupos_meteo.loc[df_time.index]
+                # Gráfica temporal compacta
+                fig_time, ax_time = plt.subplots(figsize=(6.0, 4.2))
+                import seaborn as sns
+                sns.scatterplot(data=df_time, x=x_time_col, y="Grupo", hue="Grupo", palette="Set2", ax=ax_time, s=18)
+                ax_time.set_xlabel(x_time_col)
+                ax_time.set_ylabel("Grupo")
+                ax_time.set_title("Días por grupo (eje temporal correcto)", fontsize=_TITLE)
+                # Si es Fecha y abarca 2 años, matplotlib maneja bien el tiempo — no hay “salto raro” del DOY
+                center(fig_time)
+            else:
+                # Fallback con índice si no hay columnas temporales razonables
+                df_time = pd.DataFrame({"idx": Xmet.index})
+                df_time["Grupo"] = grupos_meteo.values
+                fig_time, ax_time = plt.subplots(figsize=(6.0, 4.2))
+                import seaborn as sns
+                sns.scatterplot(data=df_time, x="idx", y="Grupo", hue="Grupo", palette="Set2", ax=ax_time, s=18)
+                ax_time.set_xlabel("Índice")
+                ax_time.set_ylabel("Grupo")
+                ax_time.set_title("Días por grupo (sin columna temporal)", fontsize=_TITLE)
+                center(fig_time)
+
+            # 6.6) (Opcional) Boxplots por década y grupo (solo meteo)
+            #      Si los quieres mantener, deja este bloque tal cual; si no, puedes comentarlo.
+            if "decada" in df_in.columns:
+                st.markdown("**Distribución por década y grupo (solo meteo)**")
                 for var in meteo_cols:
                     join_df = df_in.loc[Xmet.index, ["decada", var]].dropna().copy()
                     if join_df.empty:
                         continue
                     join_df["Grupo"] = grupos_meteo.loc[join_df.index]
                     import seaborn as sns
-                    fbx, axbx = plt.subplots(figsize=(6.0, 4.2))  # compacta + centrada
+                    fbx, axbx = plt.subplots(figsize=(6.0, 4.2))
                     sns.boxplot(
                         data=join_df,
                         x="decada", y=var, hue="Grupo",
                         palette="Set2"
                     )
-                    axbx.set_title(f"{var} por grupo y década — (Solo meteo)", fontsize=_TITLE)
+                    axbx.set_title(f"{var} por grupo y década — (solo meteo)", fontsize=_TITLE)
                     axbx.set_xlabel("Década"); axbx.set_ylabel(var)
                     handles, labels = axbx.get_legend_handles_labels()
                     axbx.legend(handles, labels, title="Grupo", ncols=3, fontsize=_LABEL-1)
                     center(fbx)
 
-                # ===== Deja también la versión Plotly (para comparar) en un expander =====
-                with st.expander("Versión interactiva (Plotly) — Solo meteo"):
-                    for var in meteo_cols:
-                        try:
-                            join_df = df_in.loc[Xmet.index, ["decada", var]].dropna().copy()
-                            if join_df.empty:
-                                continue
-                            join_df["Grupo"] = grupos_meteo.loc[join_df.index]
-                            figpx = px.box(
-                                join_df, x="decada", y=var, color="Grupo",
-                                title=f"{var} por grupo y década — (Solo meteo)",
-                                labels={"decada":"Década", var:var, "Grupo":"Grupo"},
-                                color_discrete_sequence=px.colors.qualitative.Set2,
-                                points="all"
-                            )
-                            st.plotly_chart(figpx, use_container_width=True)
-                        except Exception:
-                            pass
+
+        # meteo_cols = _presentes(df_in, ["Tmax","Tmin","HR","Ux","Rs"])
+        # Xmet = df_in[meteo_cols].dropna() if meteo_cols else pd.DataFrame()
+        # grupos_meteo = None
+        # if not Xmet.empty and Xmet.shape[1] >= 2:
+        #     _hr()
+        #     st.markdown("#### Clustering (KMeans) — Solo meteorología")
+
+        #     scaler = StandardScaler()
+        #     Xs = scaler.fit_transform(Xmet)
+
+        #     # Método del codo
+        #     inertias, ks = [], list(range(2, 10))
+        #     for k_ in ks:
+        #         km = KMeans(n_clusters=k_, random_state=42, n_init=10).fit(Xs)
+        #         inertias.append(km.inertia_)
+        #     f_elb, ax_elb = plt.subplots(figsize=(6.0, 4.2))  # compacta + centrada
+        #     ax_elb.plot(ks, inertias, marker="o")
+        #     ax_elb.set_xlabel("k"); ax_elb.set_ylabel("Inercia")
+        #     ax_elb.set_title("Método del codo", fontsize=_TITLE)
+        #     center(f_elb)
+
+        #     # k=5
+        #     k_final = 5
+        #     km = KMeans(n_clusters=k_final, random_state=42, n_init=10).fit(Xs)
+        #     grupos_meteo = pd.Series(km.labels_, index=Xmet.index, name="Grupo")
+
+        #     # Scatter Tmax vs Rs (Set2) — COMPACTA Y CENTRADA
+        #     if "Tmax" in df_in.columns and "Rs" in df_in.columns:
+        #         import seaborn as sns
+        #         fig_sc, ax_sc = plt.subplots(figsize=(6.0, 4.2))
+        #         tmp = df_in.loc[Xmet.index, ["Tmax","Rs"]].copy()
+        #         tmp["Grupo"] = grupos_meteo
+        #         sns.scatterplot(data=tmp, x="Tmax", y="Rs", hue="Grupo", palette="Set2", ax=ax_sc)
+        #         ax_sc.set_title("Clasificación de días climáticos — (Solo meteo)", fontsize=_TITLE)
+        #         center(fig_sc)
+
+        #     # Distribución de días por grupo (Día vs Grupo)
+        #     dia_col = None
+        #     for cand in ["Día","Dia","DOY","Dia_ciclo"]:
+        #         if cand in df_in.columns and df_in[cand].notna().any():
+        #             dia_col = cand; break
+        #     if dia_col is not None:
+        #         df_days = df_in[[dia_col]].copy().loc[Xmet.index]
+        #         df_days["Grupo"] = grupos_meteo
+        #         fig_dg, ax_dg = plt.subplots(figsize=(10, 5))
+        #         import seaborn as sns
+        #         sns.scatterplot(data=df_days, x=dia_col, y="Grupo", hue="Grupo", palette="Set2", ax=ax_dg)
+        #         ax_dg.set_title("Distribución de días por grupo — (Solo meteo)", fontsize=_TITLE)
+        #         st.pyplot(fig_dg, use_container_width=True)
+
+        #     # ===== Versión SEABORN (como el profe): Boxplots por década y grupo =====
+        #     if "decada" in df_in.columns and grupos_meteo is not None:
+        #         st.markdown("**Distribución por década y grupo (Solo meteo) — Versión Seaborn**")
+        #         for var in meteo_cols:
+        #             join_df = df_in.loc[Xmet.index, ["decada", var]].dropna().copy()
+        #             if join_df.empty:
+        #                 continue
+        #             join_df["Grupo"] = grupos_meteo.loc[join_df.index]
+        #             import seaborn as sns
+        #             fbx, axbx = plt.subplots(figsize=(6.0, 4.2))  # compacta + centrada
+        #             sns.boxplot(
+        #                 data=join_df,
+        #                 x="decada", y=var, hue="Grupo",
+        #                 palette="Set2"
+        #             )
+        #             axbx.set_title(f"{var} por grupo y década — (Solo meteo)", fontsize=_TITLE)
+        #             axbx.set_xlabel("Década"); axbx.set_ylabel(var)
+        #             handles, labels = axbx.get_legend_handles_labels()
+        #             axbx.legend(handles, labels, title="Grupo", ncols=3, fontsize=_LABEL-1)
+        #             center(fbx)
+
+        #         # ===== Deja también la versión Plotly (para comparar) en un expander =====
+        #         with st.expander("Versión interactiva (Plotly) — Solo meteo"):
+        #             for var in meteo_cols:
+        #                 try:
+        #                     join_df = df_in.loc[Xmet.index, ["decada", var]].dropna().copy()
+        #                     if join_df.empty:
+        #                         continue
+        #                     join_df["Grupo"] = grupos_meteo.loc[join_df.index]
+        #                     figpx = px.box(
+        #                         join_df, x="decada", y=var, color="Grupo",
+        #                         title=f"{var} por grupo y década — (Solo meteo)",
+        #                         labels={"decada":"Década", var:var, "Grupo":"Grupo"},
+        #                         color_discrete_sequence=px.colors.qualitative.Set2,
+        #                         points="all"
+        #                     )
+        #                     st.plotly_chart(figpx, use_container_width=True)
+        #                 except Exception:
+        #                     pass
 
         # ---------------------------
         # 7) KMeans con meteorología + ET0 + ETc (como el profe)

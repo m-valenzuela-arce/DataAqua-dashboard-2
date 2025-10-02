@@ -1477,7 +1477,36 @@ with tab_modelos:
             # 6.4) Resumen de tamaños por grupo (tabla compacta)
             counts = grupos_meteo.value_counts().sort_index()
             df_resumen = pd.DataFrame({"Grupo": counts.index, "Elementos": counts.values})
-            st.table(df_resumen)
+            
+            #st.table(df_resumen)
+            # Tabla compacta, centrada, sin índice (HTML)
+            # df_resumen = DataFrame con columnas: ["Grupo", "Elementos"]
+            html_rows = "\n".join(
+                f"<tr><td style='border:1px solid #ddd; padding:6px 12px; text-align:center;'>G{int(g)}</td>"
+                f"<td style='border:1px solid #ddd; padding:6px 12px; text-align:center;'>{int(n)}</td></tr>"
+                for g, n in zip(df_resumen["Grupo"], df_resumen["Elementos"])
+            )
+
+            st.markdown(
+                f"""
+            <div style="width:100%; display:flex; justify-content:center; margin:6px 0 10px 0;">
+            <table style="border-collapse:collapse; font-size:13px;">
+                <thead>
+                <tr>
+                    <th style="border:1px solid #ddd; padding:6px 12px; background:#f5f5f7; text-align:center;">Grupo</th>
+                    <th style="border:1px solid #ddd; padding:6px 12px; background:#f5f5f7; text-align:center;">Elementos</th>
+                </tr>
+                </thead>
+                <tbody>
+                {html_rows}
+                </tbody>
+            </table>
+            </div>
+            """,
+                unsafe_allow_html=True,
+            )
+
+
 
             # 6.5) Distribución temporal por grupo (X = Fecha si existe)
             # Elegir la mejor columna temporal: Fecha > Dia_ciclo > DOY > index

@@ -1185,7 +1185,8 @@ with tab_modelos:
         cols_est = _presentes(df_in, ["Tmax","Tmin","Tmean","HR","Ux","Rs","ET0","ETc","ETverde","ETazul","Pef"])
         if cols_est:
             desc = df_in[cols_est].describe(percentiles=[0.25,0.5,0.75]).T
-            st.dataframe(desc, use_container_width=True)
+            #st.dataframe(desc, use_container_width=True)
+            st.table(desc)
         else:
             st.info("No hay columnas numéricas esperadas para la estadística descriptiva.")
 

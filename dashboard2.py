@@ -1361,6 +1361,11 @@ with tab_modelos:
         # ---------------------------
         # 5) Random Forest (R², MSE + Importancia de variables)
         # ---------------------------
+       
+        # ⬇️ separador y título de sección (como en Dispersión y Regresión)
+        _hr()
+        st.markdown("#### Random Forest")
+
         feats_rf = _presentes(df_in, ["Tmax","Tmin","HR","Ux","Rs"])
         if "ET0" in df_in.columns and len(feats_rf) >= 2:
             dfr = df_in[feats_rf + ["ET0"]].dropna()
@@ -1370,15 +1375,51 @@ with tab_modelos:
                 rf = RandomForestRegressor(n_estimators=100, random_state=42).fit(Xtr, ytr)
                 yhat = rf.predict(Xte)
                 r2rf = r2_score(yte, yhat); mserf = mean_squared_error(yte, yhat)
-                st.caption(f"**Random Forest — R²:** {r2rf:.4f}  ·  **MSE:** {mserf:.4f}")
 
-                # Importancias (barras, respetando estilo matplotlib)
+                # Importancias (barras) — COMPACTA Y CENTRADA (mismo tamaño que correlación/regresión/codo)
                 imp = pd.Series(rf.feature_importances_, index=X.columns).sort_values(ascending=True)
-                f_imp, ax_imp = plt.subplots(figsize=(6.0, 4.2))  # compacta + centrada
+                f_imp, ax_imp = plt.subplots(figsize=(6.0, 4.2))
                 ax_imp.barh(imp.index, imp.values)
                 ax_imp.set_title("Importancia de variables (RF)", fontsize=_TITLE)
                 ax_imp.set_xlabel("Importancia"); ax_imp.set_ylabel("")
-                center(f_imp)
+                center(f_imp)  # ⬅️ render de la figura
+
+                # Métricas DEBAJO de la gráfica (título negro grande + métricas gris un punto menor)
+                st.markdown(
+                    f"""
+        <div style="margin-top:6px;">
+        <div style="font-size:16px; color:#000; font-weight:700; line-height:1.2; margin-bottom:2px;">
+            Random Forest
+        </div>
+        <div style="font-size:14px; color:#444; line-height:1.25;">
+            R<sup>2</sup> = {r2rf:.4f}<br>
+            MSE = {mserf:.4f}
+        </div>
+        </div>
+        """,
+                    unsafe_allow_html=True,
+                )
+
+ 
+ 
+        # feats_rf = _presentes(df_in, ["Tmax","Tmin","HR","Ux","Rs"])
+        # if "ET0" in df_in.columns and len(feats_rf) >= 2:
+        #     dfr = df_in[feats_rf + ["ET0"]].dropna()
+        #     if len(dfr) > 20:
+        #         X = dfr[feats_rf]; y = dfr["ET0"]
+        #         Xtr, Xte, ytr, yte = train_test_split(X, y, test_size=0.2, random_state=42)
+        #         rf = RandomForestRegressor(n_estimators=100, random_state=42).fit(Xtr, ytr)
+        #         yhat = rf.predict(Xte)
+        #         r2rf = r2_score(yte, yhat); mserf = mean_squared_error(yte, yhat)
+        #         st.caption(f"**Random Forest — R²:** {r2rf:.4f}  ·  **MSE:** {mserf:.4f}")
+
+        #         # Importancias (barras, respetando estilo matplotlib)
+        #         imp = pd.Series(rf.feature_importances_, index=X.columns).sort_values(ascending=True)
+        #         f_imp, ax_imp = plt.subplots(figsize=(6.0, 4.2))  # compacta + centrada
+        #         ax_imp.barh(imp.index, imp.values)
+        #         ax_imp.set_title("Importancia de variables (RF)", fontsize=_TITLE)
+        #         ax_imp.set_xlabel("Importancia"); ax_imp.set_ylabel("")
+        #         center(f_imp)
 
         # ---------------------------
         # 6) KMeans SOLO meteorología (como el profe)

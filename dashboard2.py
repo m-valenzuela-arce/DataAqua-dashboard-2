@@ -1530,7 +1530,7 @@ with tab_modelos:
                 # Gráfica temporal compacta
                 fig_time, ax_time = plt.subplots(figsize=(6.0, 4.2))
                 import seaborn as sns
-                import numpy as np
+                #import numpy as np
 
                 # ✅ DIBUJAR el scatter (esto estaba comentado)
                 sns.scatterplot(
@@ -1557,7 +1557,7 @@ with tab_modelos:
 
                 fig_time, ax_time = plt.subplots(figsize=(6.0, 4.2))
                 import seaborn as sns
-                import numpy as np
+                #import numpy as np
 
                 sns.scatterplot(
                     data=df_time, x="idx", y="Grupo",

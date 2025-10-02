@@ -1282,7 +1282,7 @@ with tab_modelos:
                     f"""
         <div style="margin-top:6px;">
         <div style="font-size:16px; color:#000; font-weight:700; line-height:1.2; margin-bottom:2px;">
-            Regresión lineal
+        #    Regresión lineal
         </div>
         <div style="font-size:14px; color:#444; line-height:1.25;">
             R<sup>2</sup> = {r2:.4f}<br>

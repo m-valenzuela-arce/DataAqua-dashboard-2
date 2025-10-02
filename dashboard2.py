@@ -1508,6 +1508,9 @@ with tab_modelos:
 
 
 
+            # # 6.5) Distribución temporal por grupo (X = Fecha si existe)
+            # # Elegir la mejor columna temporal: Fecha > Dia_ciclo > DOY > index
+            
             # 6.5) Distribución temporal por grupo (X = Fecha si existe)
             # Elegir la mejor columna temporal: Fecha > Dia_ciclo > DOY > index
             if "Fecha" in df_in.columns and df_in["Fecha"].notna().any():
@@ -1523,40 +1526,102 @@ with tab_modelos:
             if x_time_col is not None:
                 df_time = df_in.loc[Xmet.index, [x_time_col]].copy().dropna()
                 df_time["Grupo"] = grupos_meteo.loc[df_time.index]
+
                 # Gráfica temporal compacta
                 fig_time, ax_time = plt.subplots(figsize=(6.0, 4.2))
                 import seaborn as sns
-                
-                # sns.scatterplot(data=df_time, x=x_time_col, y="Grupo", hue="Grupo", palette="Set2", ax=ax_time, s=18)
-                # ax_time.set_xlabel(x_time_col)
-                # ax_time.set_ylabel("Grupo")
-                # ax_time.set_title("Días por grupo", fontsize=_TITLE)
-                
+                import numpy as np
+
+                # ✅ DIBUJAR el scatter (esto estaba comentado)
+                sns.scatterplot(
+                    data=df_time, x=x_time_col, y="Grupo",
+                    hue="Grupo", palette="Set2",
+                    ax=ax_time, s=18
+                )
+                ax_time.set_xlabel(x_time_col)
+                ax_time.set_ylabel("Grupo")
+                ax_time.set_title("Días por grupo", fontsize=_TITLE)
+
                 # ✅ Ticks Y solo enteros (0..k-1), sin fracciones
                 gvals = np.sort(df_time["Grupo"].unique())
                 ax_time.set_yticks(gvals)
                 ax_time.set_ylim(gvals.min() - 0.5, gvals.max() + 0.5)
-                
-                
-                
+
                 # Si es Fecha y abarca 2 años, matplotlib maneja bien el tiempo — no hay “salto raro” del DOY
                 center(fig_time)
+
             else:
                 # Fallback con índice si no hay columnas temporales razonables
                 df_time = pd.DataFrame({"idx": Xmet.index})
                 df_time["Grupo"] = grupos_meteo.values
+
                 fig_time, ax_time = plt.subplots(figsize=(6.0, 4.2))
-                
-                sns.scatterplot(data=df_time, x="idx", y="Grupo", hue="Grupo", palette="Set2", ax=ax_time, s=18)
+                import seaborn as sns
+                import numpy as np
+
+                sns.scatterplot(
+                    data=df_time, x="idx", y="Grupo",
+                    hue="Grupo", palette="Set2",
+                    ax=ax_time, s=18
+                )
                 ax_time.set_xlabel("Índice")
                 ax_time.set_ylabel("Grupo")
                 ax_time.set_title("Días por grupo (sin columna temporal)", fontsize=_TITLE)
-                
+
                 gvals = np.sort(df_time["Grupo"].unique())
                 ax_time.set_yticks(gvals)
                 ax_time.set_ylim(gvals.min() - 0.5, gvals.max() + 0.5)
-                
+
                 center(fig_time)
+            
+            
+            # if "Fecha" in df_in.columns and df_in["Fecha"].notna().any():
+            #     x_time_col = "Fecha"
+            # elif "Dia_ciclo" in df_in.columns and df_in["Dia_ciclo"].notna().any():
+            #     x_time_col = "Dia_ciclo"
+            # elif "DOY" in df_in.columns and df_in["DOY"].notna().any():
+            #     x_time_col = "DOY"
+            # else:
+            #     x_time_col = None  # usaremos el índice
+
+            # # Construir df para el scatter temporal
+            # if x_time_col is not None:
+            #     df_time = df_in.loc[Xmet.index, [x_time_col]].copy().dropna()
+            #     df_time["Grupo"] = grupos_meteo.loc[df_time.index]
+            #     # Gráfica temporal compacta
+            #     fig_time, ax_time = plt.subplots(figsize=(6.0, 4.2))
+            #     import seaborn as sns
+                
+            #     # sns.scatterplot(data=df_time, x=x_time_col, y="Grupo", hue="Grupo", palette="Set2", ax=ax_time, s=18)
+            #     # ax_time.set_xlabel(x_time_col)
+            #     # ax_time.set_ylabel("Grupo")
+            #     # ax_time.set_title("Días por grupo", fontsize=_TITLE)
+                
+            #     # ✅ Ticks Y solo enteros (0..k-1), sin fracciones
+            #     gvals = np.sort(df_time["Grupo"].unique())
+            #     ax_time.set_yticks(gvals)
+            #     ax_time.set_ylim(gvals.min() - 0.5, gvals.max() + 0.5)
+                
+                
+                
+            #     # Si es Fecha y abarca 2 años, matplotlib maneja bien el tiempo — no hay “salto raro” del DOY
+            #     center(fig_time)
+            # else:
+            #     # Fallback con índice si no hay columnas temporales razonables
+            #     df_time = pd.DataFrame({"idx": Xmet.index})
+            #     df_time["Grupo"] = grupos_meteo.values
+            #     fig_time, ax_time = plt.subplots(figsize=(6.0, 4.2))
+                
+            #     sns.scatterplot(data=df_time, x="idx", y="Grupo", hue="Grupo", palette="Set2", ax=ax_time, s=18)
+            #     ax_time.set_xlabel("Índice")
+            #     ax_time.set_ylabel("Grupo")
+            #     ax_time.set_title("Días por grupo (sin columna temporal)", fontsize=_TITLE)
+                
+            #     gvals = np.sort(df_time["Grupo"].unique())
+            #     ax_time.set_yticks(gvals)
+            #     ax_time.set_ylim(gvals.min() - 0.5, gvals.max() + 0.5)
+                
+            #     center(fig_time)
 
             # 6.6) (Opcional) Boxplots por década y grupo (solo meteo)
             #      Si los quieres mantener, deja este bloque tal cual; si no, puedes comentarlo.

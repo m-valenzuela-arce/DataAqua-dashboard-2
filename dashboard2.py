@@ -1260,7 +1260,18 @@ with tab_modelos:
                 yhat = lm.predict(Xte)
                 r2 = r2_score(yte, yhat); mse = mean_squared_error(yte, yhat)
 
-                st.caption(f"**Regresión lineal — R²:** {r2:.4f}  ·  **MSE:** {mse:.4f}")
+                #st.caption(f"**Regresión lineal — R²:** {r2:.4f}  ·  **MSE:** {mse:.4f}")
+                st.markdown(
+                    f"""
+                <div style="font-size:15px; color:#000; font-weight:700; line-height:1.25; margin:4px 0 8px 0;">
+                Regresión lineal:<br>
+                R<sup>2</sup> = {r2:.4f}<br>
+                MSE = {mse:.4f}
+                </div>
+                """,
+                    unsafe_allow_html=True,
+                )
+                
                 fig, ax = plt.subplots(figsize=(6.0, 4.2))  # compacta + centrada
                 ax.scatter(yte, yhat, s=14, alpha=0.8)
                 lims = [min(yte.min(), yhat.min()), max(yte.max(), yhat.max())]

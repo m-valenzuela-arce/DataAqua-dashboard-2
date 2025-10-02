@@ -1388,9 +1388,6 @@ with tab_modelos:
                 st.markdown(
                     f"""
         <div style="margin-top:6px;">
-        <div style="font-size:16px; color:#000; font-weight:700; line-height:1.2; margin-bottom:2px;">
-            Random Forest
-        </div>
         <div style="font-size:14px; color:#444; line-height:1.25;">
             R<sup>2</sup> = {r2rf:.4f}<br>
             MSE = {mserf:.4f}

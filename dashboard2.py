@@ -1250,6 +1250,37 @@ with tab_modelos:
         # ---------------------------
         # 4) Regresión lineal (ET0 ~ Tmax + Tmin + HR + Ux + Rs)
         # ---------------------------
+        # feats_lin = _presentes(df_in, ["Tmax","Tmin","HR","Ux","Rs"])
+        # if "ET0" in df_in.columns and len(feats_lin) >= 2:
+        #     dfm = df_in[feats_lin + ["ET0"]].dropna()
+        #     if len(dfm) > 20:
+        #         X = dfm[feats_lin]; y = dfm["ET0"]
+        #         Xtr, Xte, ytr, yte = train_test_split(X, y, test_size=0.2, random_state=42)
+        #         lm = LinearRegression().fit(Xtr, ytr)
+        #         yhat = lm.predict(Xte)
+        #         r2 = r2_score(yte, yhat); mse = mean_squared_error(yte, yhat)
+
+        #         #st.caption(f"**Regresión lineal — R²:** {r2:.4f}  ·  **MSE:** {mse:.4f}")
+        #         #st.markdown(
+        #         #    f"""
+        #         # <div style="font-size:15px; color:#000; font-weight:700; line-height:1.25; margin:4px 0 8px 0;">
+        #         # Regresión lineal:<br>
+        #         # R<sup>2</sup> = {r2:.4f}<br>
+        #         # MSE = {mse:.4f}
+        #         # </div>
+        #         # """,
+        #         #     unsafe_allow_html=True,
+        #         # )
+                
+        #         fig, ax = plt.subplots(figsize=(6.0, 4.2))  # compacta + centrada
+        #         ax.scatter(yte, yhat, s=14, alpha=0.8)
+        #         lims = [min(yte.min(), yhat.min()), max(yte.max(), yhat.max())]
+        #         ax.plot(lims, lims, "r--", linewidth=1)
+        #         ax.set_xlabel("ET0 real"); ax.set_ylabel("ET0 predicho")
+        #         ax.set_title("Real vs Predicho (Lineal)", fontsize=_TITLE)
+        #         center(fig)
+
+
         feats_lin = _presentes(df_in, ["Tmax","Tmin","HR","Ux","Rs"])
         if "ET0" in df_in.columns and len(feats_lin) >= 2:
             dfm = df_in[feats_lin + ["ET0"]].dropna()
@@ -1260,26 +1291,32 @@ with tab_modelos:
                 yhat = lm.predict(Xte)
                 r2 = r2_score(yte, yhat); mse = mean_squared_error(yte, yhat)
 
-                #st.caption(f"**Regresión lineal — R²:** {r2:.4f}  ·  **MSE:** {mse:.4f}")
-                st.markdown(
-                    f"""
-                <div style="font-size:15px; color:#000; font-weight:700; line-height:1.25; margin:4px 0 8px 0;">
-                Regresión lineal:<br>
-                R<sup>2</sup> = {r2:.4f}<br>
-                MSE = {mse:.4f}
-                </div>
-                """,
-                    unsafe_allow_html=True,
-                )
-                
+                # Gráfica (igual que tienes)
                 fig, ax = plt.subplots(figsize=(6.0, 4.2))  # compacta + centrada
                 ax.scatter(yte, yhat, s=14, alpha=0.8)
                 lims = [min(yte.min(), yhat.min()), max(yte.max(), yhat.max())]
                 ax.plot(lims, lims, "r--", linewidth=1)
                 ax.set_xlabel("ET0 real"); ax.set_ylabel("ET0 predicho")
                 ax.set_title("Real vs Predicho (Lineal)", fontsize=_TITLE)
-                center(fig)
+                center(fig)  # ⬅️ esto renderiza la figura
 
+                # 🔽 Texto de métricas DEBAJO de la gráfica
+                st.markdown(
+                    f"""
+        <div style="margin-top:6px;">
+        <div style="font-size:16px; color:#000; font-weight:700; line-height:1.2; margin-bottom:2px;">
+            Regresión lineal
+        </div>
+        <div style="font-size:14px; color:#444; line-height:1.25;">
+            R<sup>2</sup> = {r2:.4f}<br>
+            MSE = {mse:.4f}
+        </div>
+        </div>
+        """,
+                    unsafe_allow_html=True,
+                )
+
+               
         # ---------------------------
         # 5) Random Forest (R², MSE + Importancia de variables)
         # ---------------------------

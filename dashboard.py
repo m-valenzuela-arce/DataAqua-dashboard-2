@@ -1,105 +1,80 @@
 # ==========================================
-# DataAqua — Dashboard 4 "Canvas" (sin sidebar)
-# Layout tipo landing analítica: hero + chips + panel flotante
-# ==========================================
-# Requisitos:
-#   streamlit>=1.30
-#   pandas, numpy, plotly
-# Ejecuta:
-#   streamlit run dashboard4_canvas.py
+# DataAqua — Dashboard 5 (Dark Analytics)
+# Estilo tipo BI: tarjetas KPI + gauges + heatmap + ranking
 # ==========================================
 
 from pathlib import Path
 import os, re
 from datetime import datetime, timedelta
-
 import numpy as np
 import pandas as pd
 import streamlit as st
 import plotly.graph_objects as go
+import plotly.express as px
 
-# ---------- CONFIG ----------
-st.set_page_config(
-    page_title="DataAqua — Canvas",
-    page_icon="💧",
-    layout="wide",
-    initial_sidebar_state="collapsed"
-)
-
+# ------------ CONFIG ------------
+st.set_page_config(page_title="DataAqua — Dark Analytics", page_icon="💧", layout="wide")
 DATA_DIR = Path("data") / "Salidas_ETo12_con_uac_y_hh" / "Periodo de Cultivo ETo"
 
-# ---------- CSS (look fresco) ----------
-st.markdown("""
+DARK_CSS = """
 <style>
-/* Oculta el menú default superior (mantén el de desplegar si quieres) */
-header { visibility: hidden; height: 0; }
+/* Modo oscuro sobrio */
+html, body { background: #0b1220; color: #e5e7eb; }
+.block-container { padding-top: 0.6rem; }
+section[data-testid="stSidebar"] { display:none !important; }
+a { color:#7dd3fc; }
 
-/* Hero */
-.hero {
-  padding: 10px 0 12px 0;
-  border-bottom: 1px solid #eceff4;
+/* Tarjetas KPI columna izquierda */
+.kpicard {
+  background:#111827; border:1px solid #1f2937; border-radius:12px;
+  padding:10px 12px; box-shadow: 0 1px 2px rgba(0,0,0,.25); margin-bottom:10px;
 }
-h1.hero-title {
-  font-size: 2.0rem; margin: 0 0 6px 0; letter-spacing: -0.02em;
-}
-.hero-sub { color: #6b7280; }
+.kpicard .title { color:#9ca3af; font-size:.85rem; margin-bottom:6px; }
+.kpicard .value { font-size:1.35rem; font-weight:800; color:#f9fafb; }
+.kpicard .sub { color:#9ca3af; font-size:.75rem; }
 
-/* Chips y contenedores */
-.chips { display:flex; flex-wrap:wrap; gap:8px; margin: 8px 0 2px 0;}
-.chip {
-  border:1px solid #e5e7eb; padding:6px 10px; border-radius:999px;
-  background:#fff; cursor:pointer; font-size:0.88rem;
-}
-.chip.active { background:#0ea5e9; color:#fff; border-color:#0ea5e9; }
-
-/* Panel flotante (controles mínimos) */
-.floating {
-  position: sticky; top: 10px; z-index: 5;
-  border: 1px solid #e5e7eb; border-radius: 12px; background: #ffffffcc;
-  backdrop-filter: blur(8px);
-  padding: 10px 12px; box-shadow: 0 2px 10px rgba(0,0,0,0.04);
+/* Panel info derecha */
+.panel {
+  background:#0f172a; border:1px solid #1f2937; border-radius:12px;
+  padding:12px; margin-bottom:10px;
 }
 
-/* Tarjetas KPI mini */
-.kpi {
-  border: 1px dashed #e5e7eb; border-radius: 10px; padding: 10px 12px; background:#fff;
-}
-.kpi h4 { margin:0; font-size:0.9rem; color:#374151; }
-.kpi .v { font-weight:700; font-size:1.25rem; }
-.kpi .s { color:#6b7280; font-size:0.78rem; }
-
-/* Secciones */
-.section-title { font-weight:700; font-size:1.0rem; margin: 6px 0; }
-
-/* Footer sutil */
-.footer { color:#9ca3af; font-size:0.8rem; text-align:center; padding: 8px 0 0 0; }
+/* Controles top (chips) */
+.chiprow { display:flex; gap:8px; flex-wrap:wrap; margin: 4px 0 8px 0; }
+.chiprow > div { background:#0f172a; padding:6px 10px; border:1px solid #1f2937; border-radius:999px; }
 </style>
-""", unsafe_allow_html=True)
+"""
+st.markdown(DARK_CSS, unsafe_allow_html=True)
 
-# ---------- Paletas ----------
-PALETTE = ["#0ea5e9", "#10b981", "#f59e0b", "#ef4444", "#6366f1", "#14b8a6", "#e11d48"]
+# ------------ Colores ------------
+PALETTE = {
+    "accent": "#38bdf8",
+    "green":  "#22c55e",
+    "orange": "#f59e0b",
+    "red":    "#ef4444",
+    "violet": "#8b5cf6",
+    "gray":   "#9ca3af",
+}
 
-# ---------- Mapeo columnas (igual que tu pipeline) ----------
+# ------------ Mapeo columnas ------------
 MAP_UNISON = {
-    "Año_ (YEAR)": "Year", "AÃ±o_ (YEAR)": "Year",
-    "Día (DOY)": "DOY", "DÃ­a (DOY)": "DOY",
-    "Tmax (T2M_MAX)": "Tmax", "Tmin (T2M_MIN)": "Tmin",
-    "HR (RH2M)": "HR", "Ux (WS2M)": "Ux",
-    "Rs (ALLSKY_SFC_SW_DWN)": "Rs", "Rl_ (ALLSKY_SFC_LW_DWN)": "Rl",
-    "Ptot_ (PRECTOTCORR)": "Ptot", "Pef_": "Pef", "Tmean_": "Tmean",
-    "ET0":"ET0","ETc":"ETc","ETverde":"ETverde","ETazul":"ETazul",
+    "Año_ (YEAR)":"Year","AÃ±o_ (YEAR)":"Year",
+    "Día (DOY)":"DOY","DÃ­a (DOY)":"DOY",
+    "Tmax (T2M_MAX)":"Tmax","Tmin (T2M_MIN)":"Tmin",
+    "HR (RH2M)":"HR","Ux (WS2M)":"Ux",
+    "Rs (ALLSKY_SFC_SW_DWN)":"Rs","Rl_ (ALLSKY_SFC_LW_DWN)":"Rl",
+    "Ptot_ (PRECTOTCORR)":"Ptot","Pef_":"Pef","Tmean_":"Tmean",
     "Rns_":"Rns","Rnl_":"Rnl","Rn_":"Rn","Rso_":"Rso","Kc_":"Kc","decada_":"decada",
+    "ET0":"ET0","ETc":"ETc","ETverde":"ETverde","ETazul":"ETazul",
     "Year":"Year","DOY":"DOY","Dia":"Dia",
 }
-NUM_COLS = [
-    "Year","DOY","ET0","ETc","ETverde","ETazul","Pef","decada",
-    "Rns","Rnl","Rs","Tmean","HR","Ux","Kc","Tmax","Tmin",
-    "UACverde_m3_ha","UACazul_m3_ha","HHverde_m3_ton","HHazul_m3_ton",
-]
+NUM_COLS = ["Year","DOY","ET0","ETc","ETverde","ETazul","Pef","decada",
+            "Rns","Rnl","Rs","Tmean","HR","Ux","Kc","Tmax","Tmin",
+            "UACverde_m3_ha","UACazul_m3_ha","HHverde_m3_ton","HHazul_m3_ton"]
 
-# ---------- Helpers ----------
-def parse_unison_filename(filename: str):
-    m = re.match(r"([\wÁÉÍÓÚáéíóúñÑ\s\-]+)-FAO56-(\d{4})(?:-(\d{4}))?-SALIDA\.csv$", filename, re.I)
+# ------------ Helpers ------------
+def parse_unison_filename(fname:str):
+    m = re.match(r"([\wÁÉÍÓÚáéíóúñÑ\s\-]+)-FAO56-(\d{4})(?:-(\d{4}))?-SALIDA\.csv$", fname, re.I)
     if not m: return None, None
     reg, y1, y2 = m.groups()
     if reg == "VillaAllende": reg = "Villa de Allende"
@@ -108,63 +83,64 @@ def parse_unison_filename(filename: str):
     return reg.strip(), ciclo
 
 @st.cache_data(show_spinner=False)
-def catalogo(base_dir: Path) -> pd.DataFrame:
-    rows = []
-    if not base_dir.exists(): return pd.DataFrame(columns=["Region","Ciclo","Ruta"])
-    for reg_folder in sorted(os.listdir(base_dir)):
-        d = base_dir / reg_folder
+def catalogo(base: Path) -> pd.DataFrame:
+    rows=[]
+    if not base.exists(): return pd.DataFrame(columns=["Region","Ciclo","Ruta"])
+    for rf in sorted(os.listdir(base)):
+        d = base / rf
         if not d.is_dir(): continue
         for f in sorted(os.listdir(d)):
             if not f.lower().endswith(".csv"): continue
             reg, ciclo = parse_unison_filename(f)
-            if reg and ciclo: rows.append({"Region": reg, "Ciclo": ciclo, "Ruta": str(d / f)})
+            if reg and ciclo: rows.append({"Region":reg, "Ciclo":ciclo, "Ruta":str(d/f)})
     return pd.DataFrame(rows).sort_values(["Region","Ciclo"]).reset_index(drop=True)
 
-def _year_doy_to_date(y, d):
+def _year_doy_to_date(y,d):
     try:
-        base = datetime(int(y), 1, 1)
-        return base + timedelta(days=int(d) - 1)
-    except Exception:
-        return pd.NaT
+        base = datetime(int(y),1,1); return base + timedelta(days=int(d)-1)
+    except: return pd.NaT
 
 @st.cache_data(show_spinner=False, ttl=300)
-def leer_csv(path: str) -> pd.DataFrame:
+def leer_csv(path:str) -> pd.DataFrame:
     p = Path(path)
     if not p.exists(): return pd.DataFrame()
     for enc in ("utf-8","latin-1", None):
         try:
-            df = pd.read_csv(p, encoding=enc) if enc else pd.read_csv(p)
-            break
-        except Exception:
-            continue
+            df = pd.read_csv(p, encoding=enc) if enc else pd.read_csv(p); break
+        except Exception: continue
     df.columns = [c.strip() for c in df.columns]
     df = df.rename(columns=lambda c: MAP_UNISON.get(c, c))
     for c in set(NUM_COLS).intersection(df.columns):
         df[c] = pd.to_numeric(df[c], errors="coerce")
-
     if {"Year","DOY"}.issubset(df.columns):
         fechas = [_year_doy_to_date(y,d) for y,d in zip(df["Year"], df["DOY"])]
         df["Fecha"] = pd.to_datetime(fechas)
         if df["Fecha"].notna().any():
             f0 = df["Fecha"].dropna().iloc[0]
-            df["Dia_ciclo"] = (df["Fecha"] - f0).dt.days.astype("Int64")
+            df["Dia_ciclo"] = (df["Fecha"]-f0).dt.days.astype("Int64")
         else:
             df["Dia_ciclo"] = pd.Series(pd.NA, index=df.index, dtype="Int64")
     else:
-        df["Fecha"] = pd.NaT
-        df["Dia_ciclo"] = pd.Series(pd.NA, index=df.index, dtype="Int64")
-
-    if "ETc" in df: df["ETc_acum"] = df["ETc"].cumsum()
-    if "ETazul" in df: df["ETazul_acum"] = df["ETazul"].cumsum()
+        df["Fecha"]=pd.NaT; df["Dia_ciclo"]=pd.Series(pd.NA, index=df.index, dtype="Int64")
+    if "ETc" in df: df["ETc_acum"]=df["ETc"].cumsum()
+    if "ETazul" in df: df["ETazul_acum"]=df["ETazul"].cumsum()
     if {"ETc","ETazul"}.issubset(df.columns):
         df["pct_azul"] = np.where(df["ETc"]>0, df["ETazul"]/df["ETc"]*100, np.nan)
+    # extras para heatmap
+    if "Fecha" in df and df["Fecha"].notna().any():
+        df["Year_"] = df["Fecha"].dt.year
+        df["Month_"]= df["Fecha"].dt.month
     return df
 
-def best_x(df: pd.DataFrame, prefer="Fecha"):
-    if prefer in df.columns and df[prefer].notna().any(): return prefer
-    for alt in ("Fecha","Dia_ciclo","DOY"):
-        if alt in df.columns and df[alt].notna().any(): return alt
+def best_x(df, prefer="Fecha"):
+    if prefer in df and df[prefer].notna().any(): return prefer
+    for c in ("Fecha","Dia_ciclo","DOY"):
+        if c in df and df[c].notna().any(): return c
     return df.index
+
+def fmt(x, dec=1, suf=""):
+    if x is None or (isinstance(x,float) and np.isnan(x)): return "—"
+    return f"{x:.{dec}f}{suf}"
 
 def kpis(df: pd.DataFrame):
     def lastv(c): 
@@ -174,236 +150,238 @@ def kpis(df: pd.DataFrame):
     etv = float(df["ETverde"].sum()) if "ETverde" in df else np.nan
     eta = float(df["ETazul"].sum()) if "ETazul" in df else np.nan
     pct = (eta/etc*100) if (etc and etc>0) else np.nan
-    siem = pd.to_datetime(df["Fecha"].dropna().iloc[0]).date() if "Fecha" in df and df["Fecha"].notna().any() else None
-    cos = pd.to_datetime(df["Fecha"].dropna().iloc[-1]).date() if "Fecha" in df and df["Fecha"].notna().any() else None
+    pef = float(df["Pef"].sum()) if "Pef" in df else np.nan
+    rain_cover = (pef/etc*100) if (etc and etc>0 and not np.isnan(pef)) else np.nan
     return {
-        "dias": dias, "etc": etc, "etv": etv, "eta": eta, "pct": pct,
-        "siembra": siem, "cosecha": cos,
-        "tmax": float(df["Tmax"].max()) if "Tmax" in df else np.nan,
-        "tmin": float(df["Tmin"].min()) if "Tmin" in df else np.nan,
-        "uacv": lastv("UACverde_m3_ha"), "uaca": lastv("UACazul_m3_ha")
+        "dias":dias,"etc":etc,"etv":etv,"eta":eta,"pct":pct,
+        "pef":pef,"rain_cover":rain_cover,
+        "uacv":lastv("UACverde_m3_ha"), "uaca":lastv("UACazul_m3_ha")
     }
 
-def fmt(x, dec=1, suf=""):
-    if x is None or (isinstance(x,float) and np.isnan(x)): return "—"
-    return f"{x:.{dec}f}{suf}"
-
-def line_multi(df, x, ycols, title):
+# ------------ Figuras (Plotly dark) ------------
+def fig_line(df, x, cols, title):
     fig = go.Figure()
-    for i, c in enumerate(ycols):
+    palette = [PALETTE["accent"], PALETTE["orange"], PALETTE["green"], PALETTE["red"], PALETTE["violet"]]
+    for i,c in enumerate(cols):
         if c not in df.columns: continue
         fig.add_trace(go.Scatter(
-            x=df[x] if isinstance(x,str) and x in df.columns else df.index,
-            y=df[c], name=c, mode="lines",
-            line=dict(width=2, color=PALETTE[i % len(PALETTE)])
+            x=df[x] if isinstance(x,str) else df.index,
+            y=df[c], mode="lines", name=c,
+            line=dict(width=2, color=palette[i % len(palette)])
         ))
-    fig.update_layout(
-        title=title, template="plotly_white",
-        margin=dict(l=10,r=10,t=40,b=10),
-        legend=dict(orientation="h", y=1.02, yanchor="bottom"),
-        height=360
-    )
+    fig.update_layout(template="plotly_dark", paper_bgcolor="#0b1220", plot_bgcolor="#0b1220",
+                      title=title, margin=dict(l=10,r=10,t=40,b=10), height=360,
+                      legend=dict(orientation="h", y=1.02, yanchor="bottom"))
     return fig
 
-def overlay_two(dfA, dfB, x, cols, tagA="A", tagB="B", title="Overlay"):
+def fig_overlay(dfA, dfB, x, cols, tagA="A", tagB="B", title="Overlay"):
     fig = go.Figure()
-    for i, c in enumerate(cols):
-        col = PALETTE[i % len(PALETTE)]
+    palette = [PALETTE["accent"], PALETTE["orange"], PALETTE["green"], PALETTE["red"], PALETTE["violet"]]
+    for i,c in enumerate(cols):
+        col = palette[i % len(palette)]
         if c in dfA.columns:
-            fig.add_trace(go.Scatter(
-                x=dfA[x] if isinstance(x,str) and x in dfA.columns else dfA.index,
-                y=dfA[c], name=f"{c} ({tagA})", mode="lines",
-                line=dict(width=2, color=col, dash="solid")
-            ))
+            fig.add_trace(go.Scatter(x=dfA[x] if isinstance(x,str) else dfA.index, y=dfA[c],
+                                     mode="lines", name=f"{c} ({tagA})",
+                                     line=dict(width=2, color=col, dash="solid")))
         if c in dfB.columns:
-            fig.add_trace(go.Scatter(
-                x=dfB[x] if isinstance(x,str) and x in dfB.columns else dfB.index,
-                y=dfB[c], name=f"{c} ({tagB})", mode="lines",
-                line=dict(width=2, color=col, dash="dash")
-            ))
+            fig.add_trace(go.Scatter(x=dfB[x] if isinstance(x,str) else dfB.index, y=dfB[c],
+                                     mode="lines", name=f"{c} ({tagB})",
+                                     line=dict(width=2, color=col, dash="dash")))
+    fig.update_layout(template="plotly_dark", paper_bgcolor="#0b1220", plot_bgcolor="#0b1220",
+                      title=title, margin=dict(l=10,r=10,t=40,b=10), height=380,
+                      legend=dict(orientation="h", y=1.02))
+    return fig
+
+def fig_gauge_pct(title, pct, color="#22c55e"):
+    # semicircular gauge usando pie
+    value = 0 if (pct is None or np.isnan(pct)) else max(0, min(100, pct))
+    fig = go.Figure(go.Pie(
+        values=[value, 100-value], hole=0.7, sort=False, direction="clockwise",
+        marker_colors=[color, "#1f2937"], textinfo="none"
+    ))
     fig.update_layout(
-        title=title, template="plotly_white",
-        margin=dict(l=10,r=10,t=40,b=10),
-        legend=dict(orientation="h", y=1.02, yanchor="bottom"),
-        height=380
+        template="plotly_dark", showlegend=False, paper_bgcolor="#111827", plot_bgcolor="#111827",
+        margin=dict(l=0,r=0,t=10,b=0), height=140,
+        annotations=[
+            dict(text=f"{value:.0f}%", x=0.5, y=0.5, font=dict(size=22,color="#f9fafb"), showarrow=False),
+            dict(text=title, x=0.5, y=0.1, font=dict(size=12,color="#9ca3af"), showarrow=False)
+        ]
     )
     return fig
 
-# ---------- Estado UI (sin sidebar) ----------
-if "modo" not in st.session_state: st.session_state["modo"] = "Individual"
+def fig_heatmap_month(df, value_col="ETc"):
+    # Heatmap Año (y) vs Mes (x) del promedio mensual
+    if not {"Year_","Month_", value_col}.issubset(df.columns): return go.Figure()
+    g = df.groupby(["Year_","Month_"], dropna=True)[value_col].mean().reset_index()
+    if g.empty: return go.Figure()
+    g_piv = g.pivot(index="Year_", columns="Month_", values=value_col).sort_index(ascending=False)
+    fig = px.imshow(g_piv, color_continuous_scale="Blues", aspect="auto",
+                    labels=dict(color=f"{value_col} prom."))
+    fig.update_layout(template="plotly_dark", paper_bgcolor="#0b1220", plot_bgcolor="#0b1220",
+                      margin=dict(l=10,r=10,t=30,b=10), height=260,
+                      coloraxis_colorbar=dict(title="mm/día"))
+    fig.update_xaxes(title="Mes"); fig.update_yaxes(title="Año")
+    return fig
 
-# ---------- HERO ----------
-st.markdown('<div class="hero">', unsafe_allow_html=True)
-c1, c2 = st.columns([0.75,0.25])
-with c1:
-    st.markdown('<h1 class="hero-title">💧 DataAqua — Canvas</h1>', unsafe_allow_html=True)
-    st.markdown('<div class="hero-sub">Panel sin menús: todo en página, con chips y controles mínimos.</div>', unsafe_allow_html=True)
-with c2:
-    st.markdown("")
+def fig_top_bars(df, col="ETc", topn=10, xlab="ETc total (mm)"):
+    if col not in df.columns: return go.Figure()
+    d = df[[col,"Fecha"]].copy()
+    if "Fecha" in d and d["Fecha"].notna().any():
+        d["Dia"] = d["Fecha"].dt.strftime("%Y-%m-%d")
+    else:
+        d["Dia"] = d.index.astype(str)
+    agg = d.groupby("Dia")[col].sum().sort_values(ascending=False).head(topn).iloc[::-1]
+    fig = go.Figure(go.Bar(x=agg.values, y=agg.index, orientation="h",
+                           marker_color=PALETTE["accent"]))
+    fig.update_layout(template="plotly_dark", paper_bgcolor="#0b1220", plot_bgcolor="#0b1220",
+                      margin=dict(l=10,r=10,t=30,b=10), height=360, xaxis_title=xlab, yaxis_title="")
+    return fig
 
-st.markdown('</div>', unsafe_allow_html=True)
+def kpi_card(title, value, sub=""):
+    st.markdown(
+        f'<div class="kpicard"><div class="title">{title}</div>'
+        f'<div class="value">{value}</div><div class="sub">{sub}</div></div>',
+        unsafe_allow_html=True
+    )
 
-# ---------- Chips de modo ----------
-col_chips = st.container()
-with col_chips:
-    colA, colB, colC = st.columns([0.18,0.18,0.64])
-    with colA:
-        if st.button("Ciclo individual", use_container_width=True,
-                     type=("primary" if st.session_state["modo"]=="Individual" else "secondary")):
-            st.session_state["modo"] = "Individual"
-    with colB:
-        if st.button("Comparar", use_container_width=True,
-                     type=("primary" if st.session_state["modo"]=="Comparar" else "secondary")):
-            st.session_state["modo"] = "Comparar"
-    with colC:
-        st.caption("Tip: click en leyendas para ocultar/mostrar series.")
-
-# ---------- Catálogo de archivos ----------
+# ------------ UI (sin sidebar; layout 3 columnas) ------------
 CAT = catalogo(DATA_DIR)
 if CAT.empty:
-    st.error("No se encontraron archivos en data/Salidas_ETo12_con_uac_y_hh/Periodo de Cultivo ETo")
+    st.error("No se encontraron archivos en la carpeta de datos.")
     st.stop()
 
-# ---------- LAYOUT: portada de datos + panel flotante de controles ----------
-left, right = st.columns([0.7, 0.3], gap="large")
+# Controles superiores
+colA, colB, colC, colD = st.columns([0.32,0.22,0.22,0.24])
+with colA:
+    st.markdown("### 💧 DataAqua — Dark Analytics")
+    st.caption("KPI • Gauges • Heatmap • Ranking — sin mapas")
+with colB:
+    modo = st.selectbox("Modo", ["Ciclo individual","Comparar ciclos","Comparar regiones"], index=0)
+with colC:
+    eje = st.selectbox("Eje X", ["Fecha","Día del ciclo"], index=0)
+    eje_col = "Dia_ciclo" if eje == "Día del ciclo" else "Fecha"
+with colD:
+    st.markdown('<div class="chiprow"><div>Zoom: arrastra</div><div>Click leyenda: oculta/ muestra</div></div>', unsafe_allow_html=True)
 
-with right:  # panel flotante
-    st.markdown('<div class="floating">', unsafe_allow_html=True)
-    st.markdown("**Controles**")
-    eje_x = st.radio("Eje X", ["Fecha","Día del ciclo"], index=0, horizontal=True)
-    eje_col = "Dia_ciclo" if eje_x == "Día del ciclo" else "Fecha"
+# Selección según modo
+if modo == "Ciclo individual":
+    regiones = sorted(CAT["Region"].unique())
+    region_sel = st.selectbox("Región", regiones, key="r1")
+    ciclos_reg = sorted(CAT.loc[CAT["Region"]==region_sel,"Ciclo"].unique())
+    ciclo_sel = st.selectbox("Ciclo", ciclos_reg, key="c1")
 
-    # Selector según modo
-    if st.session_state["modo"] == "Individual":
-        regiones = sorted(CAT["Region"].unique())
-        region_sel = st.selectbox("Región", regiones)
-        ciclos_reg = sorted(CAT.loc[CAT["Region"]==region_sel, "Ciclo"].unique())
-        ciclo_sel = st.selectbox("Ciclo", ciclos_reg)
+elif modo == "Comparar ciclos":
+    regiones = sorted(CAT["Region"].unique())
+    region_sel = st.selectbox("Región", regiones, key="r2")
+    ciclos_reg = sorted(CAT.loc[CAT["Region"]==region_sel,"Ciclo"].unique())
+    ciclo_A = st.selectbox("Ciclo A", ciclos_reg, key="cA2")
+    ciclo_B = st.selectbox("Ciclo B", ciclos_reg, index=min(1,len(ciclos_reg)-1), key="cB2")
 
-    else:  # Comparar (misma región, 2 ciclos)
-        regiones = sorted(CAT["Region"].unique())
-        region_sel = st.selectbox("Región", regiones)
-        ciclos_reg = sorted(CAT.loc[CAT["Region"]==region_sel, "Ciclo"].unique())
-        colX, colY = st.columns(2)
-        with colX:  ciclo_A = st.selectbox("Ciclo A", ciclos_reg, key="cA")
-        with colY:  ciclo_B = st.selectbox("Ciclo B", ciclos_reg, index=min(1, len(ciclos_reg)-1), key="cB")
+else:  # Comparar regiones
+    ciclos = sorted(CAT["Ciclo"].unique())
+    ciclo_sel = st.selectbox("Ciclo", ciclos, key="c3")
+    regs_ciclo = sorted(CAT.loc[CAT["Ciclo"]==ciclo_sel,"Region"].unique())
+    region_A = st.selectbox("Región A", regs_ciclo, key="rA3")
+    region_B = st.selectbox("Región B", regs_ciclo, index=min(1,len(regs_ciclo)-1), key="rB3")
 
-    st.markdown("---")
-    with st.expander("Subir CSV manual (opcional)"):
-        up = st.file_uploader("CSV UNISON", type=["csv"])
-        if up is not None:
-            df_up = pd.read_csv(up, encoding="latin-1")
-            df_up = df_up.rename(columns=lambda c: MAP_UNISON.get(c.strip(), c.strip()))
-            st.session_state["__df_canvas__"] = df_up
+st.markdown("---")
 
-    st.markdown('</div>', unsafe_allow_html=True)
+# ====== LAYOUT PRINCIPAL: 3 columnas ======
+left, center, right = st.columns([0.18, 0.54, 0.28], gap="large")
 
-with left:
-    # ====== MODO INDIVIDUAL ======
-    if st.session_state["modo"] == "Individual":
-        ruta = CAT[(CAT.Region==region_sel) & (CAT.Ciclo==ciclo_sel)]["Ruta"]
-        if ruta.empty:
-            st.warning("No encontré el archivo seleccionado.")
-            st.stop()
-        df = leer_csv(ruta.iloc[0])
-        df = st.session_state.get("__df_canvas__") or df
-        if df.empty:
-            st.error("No fue posible leer el CSV.")
-            st.stop()
+# ---------------- INDIVIDUAL ----------------
+if modo == "Ciclo individual":
+    ruta = CAT[(CAT.Region==region_sel) & (CAT.Ciclo==ciclo_sel)]["Ruta"]
+    if ruta.empty: st.error("No encontré CSV."); st.stop()
+    df = leer_csv(ruta.iloc[0])
+    if df.empty: st.error("CSV vacío o ilegible."); st.stop()
+    x = best_x(df, prefer=eje_col)
+    kp = kpis(df)
 
-        x = best_x(df, prefer=eje_col)
-        k = kpis(df)
+    # LEFT: tarjetas + gauges
+    with left:
+        kpi_card("ETc total", f"{fmt(kp['etc'],1)} mm")
+        kpi_card("ET azul total", f"{fmt(kp['eta'],1)} mm")
+        kpi_card("ET verde total", f"{fmt(kp['etv'],1)} mm")
+        kpi_card("Días de ciclo", f"{kp['dias']}")
+        kpi_card("UAC verde", f"{fmt(kp['uacv'],0)} m³/ha")
+        kpi_card("UAC azul", f"{fmt(kp['uaca'],0)} m³/ha")
+        st.plotly_chart(fig_gauge_pct("Azul / ETc", kp["pct"], PALETTE["orange"]), use_container_width=True)
+        st.plotly_chart(fig_gauge_pct("Pef / ETc", kp["rain_cover"], PALETTE["green"]), use_container_width=True)
 
-        # KPIs (grid compacto 2x5)
-        krow1 = st.columns(5)
-        for i,(tit,val,sub) in enumerate([
-            ("Días", k["dias"], ""),
-            ("Siembra", k["siembra"], "fecha"),
-            ("Cosecha", k["cosecha"], "fecha"),
-            ("ETc total", fmt(k["etc"],1," mm"), ""),
-            ("ET azul", fmt(k["eta"],1," mm"), ""),
-        ]):
-            with krow1[i]:
-                st.markdown(f'<div class="kpi"><h4>{tit}</h4><div class="v">{val}</div><div class="s">{sub}</div></div>', unsafe_allow_html=True)
-        krow2 = st.columns(5)
-        vals2 = [
-            ("% Azul", fmt(k["pct"],1,"%"), ""),
-            ("ET verde", fmt(k["etv"],1," mm"), ""),
-            ("Tmax/Tmin", f"{fmt(k['tmax'],1,'°C')} / {fmt(k['tmin'],1,'°C')}", ""),
-            ("UAC verde", fmt(k["uacv"],0," m³/ha"), ""),
-            ("UAC azul", fmt(k["uaca"],0," m³/ha"), "")
-        ]
-        for i,(tit,val,sub) in enumerate(vals2):
-            with krow2[i]:
-                st.markdown(f'<div class="kpi"><h4>{tit}</h4><div class="v">{val}</div><div class="s">{sub}</div></div>', unsafe_allow_html=True)
+    # CENTER: serie + heatmap
+    with center:
+        st.plotly_chart(
+            fig_line(df, x, [c for c in ["ET0","ETc","ETverde","ETazul","Pef"] if c in df.columns],
+                     f"{region_sel} — {ciclo_sel}"),
+            use_container_width=True
+        )
+        st.plotly_chart(fig_heatmap_month(df, value_col="ETc"), use_container_width=True)
 
-        # Serie ET
-        st.markdown('<div class="section-title">Serie diaria — ET</div>', unsafe_allow_html=True)
-        et_cols = [c for c in ["ET0","ETc","ETverde","ETazul","Pef"] if c in df.columns]
-        fig_et = line_multi(df, x, et_cols, f"{region_sel} — {ciclo_sel}")
-        st.plotly_chart(fig_et, use_container_width=True)
+    # RIGHT: ranking top días + panel info
+    with right:
+        st.plotly_chart(fig_top_bars(df, col="ETc", topn=12, xlab="ETc total (mm)"), use_container_width=True)
+        st.markdown('<div class="panel">', unsafe_allow_html=True)
+        st.markdown("**Acerca de**<br/>• Modo oscuro con Plotly (`plotly_dark`).<br/>• Heatmap = promedio mensual de **ETc** por año.<br/>• Gauges: proporción **ET azul / ETc** y **Pef / ETc**.", unsafe_allow_html=True)
+        st.markdown('</div>', unsafe_allow_html=True)
 
-        # Temperaturas + Meteo en un row
-        colT, colM = st.columns([0.5,0.5])
-        with colT:
-            st.markdown('<div class="section-title">Temperaturas</div>', unsafe_allow_html=True)
-            t_cols = [c for c in ["Tmin","Tmean","Tmax"] if c in df.columns]
-            st.plotly_chart(line_multi(df, x, t_cols, "Temperaturas"), use_container_width=True)
-        with colM:
-            st.markdown('<div class="section-title">Meteo (Rs / HR / Ux)</div>', unsafe_allow_html=True)
-            m_cols = [c for c in ["Rs","HR","Ux"] if c in df.columns]
-            st.plotly_chart(line_multi(df, x, m_cols, "Meteo"), use_container_width=True)
+# ---------------- COMPARAR CICLOS ----------------
+elif modo == "Comparar ciclos":
+    rutaA = CAT[(CAT.Region==region_sel) & (CAT.Ciclo==ciclo_A)]["Ruta"]
+    rutaB = CAT[(CAT.Region==region_sel) & (CAT.Ciclo==ciclo_B)]["Ruta"]
+    if rutaA.empty or rutaB.empty: st.error("Faltan archivos."); st.stop()
+    dfA, dfB = leer_csv(rutaA.iloc[0]), leer_csv(rutaB.iloc[0])
+    xA, xB = best_x(dfA, prefer=eje_col), best_x(dfB, prefer=eje_col)
+    kA, kB = kpis(dfA), kpis(dfB)
 
-        # Acumulados
-        st.markdown('<div class="section-title">Acumulados</div>', unsafe_allow_html=True)
-        acc_cols = [c for c in ["ETc_acum","ETazul_acum"] if c in df.columns]
-        st.plotly_chart(line_multi(df, x, acc_cols, "Acumulados (mm)"), use_container_width=True)
+    with left:
+        kpi_card("ETc (A/B)", f"{fmt(kA['etc'],1)} / {fmt(kB['etc'],1)} mm", "Totales")
+        kpi_card("% Azul (A/B)", f"{fmt(kA['pct'],1,'%')} / {fmt(kB['pct'],1,'%')}")
+        kpi_card("Días (A/B)", f"{kA['dias']} / {kB['dias']}")
+        st.plotly_chart(fig_gauge_pct(f"{ciclo_A}: Azul/ETc", kA["pct"], PALETTE["orange"]), use_container_width=True)
+        st.plotly_chart(fig_gauge_pct(f"{ciclo_B}: Azul/ETc", kB["pct"], PALETTE["orange"]), use_container_width=True)
 
-        with st.expander("Datos (primeras filas)"):
-            st.dataframe(df.head(60), use_container_width=True)
+    with center:
+        st.plotly_chart(
+            fig_overlay(dfA, dfB, xA, [c for c in ["ETc","ETazul","ETverde","Pef"] if c in set(dfA.columns)|set(dfB.columns)],
+                        tagA=ciclo_A, tagB=ciclo_B, title=f"{region_sel} — ET (A/B)"),
+            use_container_width=True
+        )
+        # Heatmaps lado a lado
+        c1, c2 = st.columns(2)
+        with c1: st.plotly_chart(fig_heatmap_month(dfA, "ETc"), use_container_width=True)
+        with c2: st.plotly_chart(fig_heatmap_month(dfB, "ETc"), use_container_width=True)
 
-    # ====== MODO COMPARAR ======
-    else:
-        rutaA = CAT[(CAT.Region==region_sel) & (CAT.Ciclo==ciclo_A)]["Ruta"]
-        rutaB = CAT[(CAT.Region==region_sel) & (CAT.Ciclo==ciclo_B)]["Ruta"]
-        if rutaA.empty or rutaB.empty:
-            st.warning("No encontré ambos ciclos.")
-            st.stop()
-        dfA = leer_csv(rutaA.iloc[0]); dfB = leer_csv(rutaB.iloc[0])
-        xA = best_x(dfA, prefer=eje_col); xB = best_x(dfB, prefer=eje_col)
+    with right:
+        st.plotly_chart(fig_top_bars(dfA, "ETc", 10, f"Top ETc — {ciclo_A}"), use_container_width=True)
+        st.plotly_chart(fig_top_bars(dfB, "ETc", 10, f"Top ETc — {ciclo_B}"), use_container_width=True)
 
-        kA, kB = kpis(dfA), kpis(dfB)
-        st.markdown(f"### {region_sel} — {ciclo_A} vs {ciclo_B}")
+# ---------------- COMPARAR REGIONES ----------------
+else:
+    rutaA = CAT[(CAT.Region==region_A) & (CAT.Ciclo==ciclo_sel)]["Ruta"]
+    rutaB = CAT[(CAT.Region==region_B) & (CAT.Ciclo==ciclo_sel)]["Ruta"]
+    if rutaA.empty or rutaB.empty: st.error("Faltan archivos."); st.stop()
+    dfA, dfB = leer_csv(rutaA.iloc[0]), leer_csv(rutaB.iloc[0])
+    xA, xB = best_x(dfA, prefer=eje_col), best_x(dfB, prefer=eje_col)
+    kA, kB = kpis(dfA), kpis(dfB)
 
-        # KPIs comparados (dos filas de 3)
-        row1 = st.columns(3)
-        with row1[0]:
-            st.markdown('<div class="kpi"><h4>ETc (A/B)</h4><div class="v">{}/{} mm</div><div class="s">total</div></div>'.format(fmt(kA["etc"],1), fmt(kB["etc"],1)), unsafe_allow_html=True)
-        with row1[1]:
-            st.markdown('<div class="kpi"><h4>% Azul (A/B)</h4><div class="v">{}/{}%</div><div class="s">proporción</div></div>'.format(fmt(kA["pct"],1), fmt(kB["pct"],1)), unsafe_allow_html=True)
-        with row1[2]:
-            st.markdown('<div class="kpi"><h4>Días (A/B)</h4><div class="v">{}/{}</div><div class="s">longitud del ciclo</div></div>'.format(kA["dias"], kB["dias"]), unsafe_allow_html=True)
+    with left:
+        kpi_card("ETc (A/B)", f"{fmt(kA['etc'],1)} / {fmt(kB['etc'],1)} mm")
+        kpi_card("% Azul (A/B)", f"{fmt(kA['pct'],1,'%')} / {fmt(kB['pct'],1,'%')}")
+        kpi_card("Días (A/B)", f"{kA['dias']} / {kB['dias']}")
+        st.plotly_chart(fig_gauge_pct(region_A, kA["pct"], PALETTE["orange"]), use_container_width=True)
+        st.plotly_chart(fig_gauge_pct(region_B, kB["pct"], PALETTE["orange"]), use_container_width=True)
 
-        # Overlay ET
-        st.markdown('<div class="section-title">Overlay — ET</div>', unsafe_allow_html=True)
-        cols_et = [c for c in ["ET0","ETc","ETverde","ETazul","Pef"] if c in set(dfA.columns)|set(dfB.columns)]
-        st.plotly_chart(overlay_two(dfA, dfB, xA, cols_et, ciclo_A, ciclo_B, "ET (A/B)"), use_container_width=True)
+    with center:
+        st.plotly_chart(
+            fig_overlay(dfA, dfB, xA, [c for c in ["ETc","ETazul","ETverde","Pef"] if c in set(dfA.columns)|set(dfB.columns)],
+                        tagA=region_A, tagB=region_B, title=f"{ciclo_sel} — ET (Regiones)"),
+            use_container_width=True
+        )
+        c1, c2 = st.columns(2)
+        with c1: st.plotly_chart(fig_heatmap_month(dfA, "ETc"), use_container_width=True)
+        with c2: st.plotly_chart(fig_heatmap_month(dfB, "ETc"), use_container_width=True)
 
-        # Overlay T y Meteo
-        col1, col2 = st.columns(2)
-        with col1:
-            st.markdown('<div class="section-title">Overlay — Temperaturas</div>', unsafe_allow_html=True)
-            tcols = [c for c in ["Tmin","Tmean","Tmax"] if c in set(dfA.columns)|set(dfB.columns)]
-            st.plotly_chart(overlay_two(dfA, dfB, xA, tcols, ciclo_A, ciclo_B, "T (A/B)"), use_container_width=True)
-        with col2:
-            st.markdown('<div class="section-title">Overlay — Meteo</div>', unsafe_allow_html=True)
-            mcols = [c for c in ["Rs","HR","Ux"] if c in set(dfA.columns)|set(dfB.columns)]
-            st.plotly_chart(overlay_two(dfA, dfB, xA, mcols, ciclo_A, ciclo_B, "Meteo (A/B)"), use_container_width=True)
-
-        # Acumulados comparados
-        st.markdown('<div class="section-title">Overlay — Acumulados</div>', unsafe_allow_html=True)
-        acc = [c for c in ["ETc_acum","ETazul_acum"] if c in set(dfA.columns)|set(dfB.columns)]
-        st.plotly_chart(overlay_two(dfA, dfB, xA, acc, ciclo_A, ciclo_B, "Acumulados (A/B)"), use_container_width=True)
-
-# ---------- Footer ----------
-st.markdown('<div class="footer">DataAqua Canvas — layout sin menús. Cambia modo con los botones superiores.</div>', unsafe_allow_html=True)
+    with right:
+        st.plotly_chart(fig_top_bars(dfA, "ETc", 10, f"Top ETc — {region_A}"), use_container_width=True)
+        st.plotly_chart(fig_top_bars(dfB, "ETc", 10, f"Top ETc — {region_B}"), use_container_width=True)

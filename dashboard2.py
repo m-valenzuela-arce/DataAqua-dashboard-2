@@ -38,7 +38,7 @@ import plotly.express as px
 # ---------------------------
 # CONFIG
 # ---------------------------
-st.set_page_config(page_title="DataAqua — Dashboard 2", page_icon="💧", layout="wide")
+st.set_page_config(page_title="DataAqua — Dashboard", page_icon="💧", layout="wide")
 
 # Carpeta de datos relativa al repo
 RUTA_SALIDA_UNISON = Path("data") / "Salidas_ETo12_con_uac_y_hh" / "Periodo de Cultivo ETo"
@@ -340,7 +340,7 @@ elif modo == "Comparar regiones":
 # ---------------------------
 # Layout principal
 # ---------------------------
-st.title("💧 DataAqua — Dashboard 2")
+st.title("💧 DataAqua — Dashboard")
 st.caption("Resultados UNISON (FAO-56). ETc (demanda del cultivo), ETverde (cubierta por Pef) y ETazul (resto). ET0 es referencia (césped).")
 
 tab_vista, tab_modelos = st.tabs(["Vista", "Modelos y Estadística"])
